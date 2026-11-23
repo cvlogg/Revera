@@ -25,6 +25,8 @@ sealed class Routes(
     object LocalFiles : Routes(0, "LocalFiles", "localfiles")
     /** Live Radio (radio/ module): search radio-browser.info, favorites, playback. */
     object LiveRadio : Routes(0, "LiveRadio", "liveradio")
+    /** Jellyfin (jellyfin/ module): the user's own server's music library. */
+    object Jellyfin : Routes(0, "Jellyfin", "jellyfin")
     object Downloads : Routes(0, "Downloads", "downloads")
     object HiddenSongs : Routes(0, "HiddenSongs", "hiddensongs")
     object Equalizer : Routes(0, "Equalizer", "equalizer")

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Jellyfin" folder cover: a white music library (Material "library_music", Apache 2.0) on
+     purple, in the style of local_files_cover.xml / live_radio_cover.xml. Not the Jellyfin logo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp" android:height="64dp"
+    android:viewportWidth="64" android:viewportHeight="64">
+    <path android:fillColor="#FF5A3D8A" android:pathData="M0,0h64v64h-64z" />
+    <group android:translateX="12" android:translateY="12" android:scaleX="1.65" android:scaleY="1.65">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M20,2H8C6.9,2 6,2.9 6,4v12c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM18,7h-3v5.5c0,1.38 -1.12,2.5 -2.5,2.5S10,13.88 10,12.5s1.12,-2.5 2.5,-2.5c0.57,0 1.08,0.19 1.5,0.51V5h4v2zM4,6H2v14c0,1.1 0.9,2 2,2h14v-2H4V6z" />
+    </group>
+</vector>

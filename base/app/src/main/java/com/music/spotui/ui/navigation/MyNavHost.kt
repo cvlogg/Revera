@@ -103,6 +103,11 @@ fun MyNavHost(
             if (isImmersive()) com.music.spotui.radio.ui.ImmersiveLiveRadioScreen(navHostController) else com.music.spotui.radio.ui.LiveRadioScreen(navHostController)
         }
 
+        // Jellyfin (see com.music.spotui.jellyfin): the user's server, played through LocalPlayer as Local Files are.
+        page(Routes.Jellyfin.route){
+            com.music.spotui.jellyfin.ui.JellyfinScreen(navHostController)
+        }
+
         page(Routes.Downloads.route){
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveDownloadsScreen(navHostController) else com.music.spotui.ui.screens.DownloadsScreen(navHostController)
         }

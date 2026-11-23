@@ -486,6 +486,15 @@ private fun LibraryPage(navController: NavController, back: () -> Unit) {
                     detail = stringResource(R.string.live_radio_settings_detail),
                 )
             }
+            // Jellyfin: adds the pinned Library row for the user's own server (see com.music.spotui.jellyfin).
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.jellyfin_settings_title),
+                    checked = com.music.spotui.jellyfin.JellyfinPref.on,
+                    onChecked = { com.music.spotui.jellyfin.JellyfinPref.set(ctx, it) },
+                    detail = stringResource(R.string.jellyfin_settings_detail),
+                )
+            }
             // Songs marked "Not interested": skipped by lists, listed here to be shown again.
             row {
                 ImmersiveGroupRow(
@@ -664,6 +673,16 @@ private fun CrossfadePage(back: () -> Unit) {
             row {
                 com.music.spotui.ui.components.CrossfadeSlider(Immersive.Accent, Immersive.Text, Immersive.TextSecondary,
                     Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+            }
+        }
+        if (mode == TransitionMode.CROSSFADE) immersiveGroup("gapless") {
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_gapless_albums),
+                    checked = com.music.spotui.data.preferences.GaplessPref.albums,
+                    onChecked = { com.music.spotui.data.preferences.GaplessPref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_gapless_albums_detail),
+                )
             }
         }
         // AutoMix, in the order its engine decides: how the songs are joined, how long and how far

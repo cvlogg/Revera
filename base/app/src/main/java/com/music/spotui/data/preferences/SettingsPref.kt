@@ -12,6 +12,7 @@ private const val KEY_LIBRARY_GRID = "library_grid_view"
 private const val KEY_LYRIC_TRANSLATE_LANG = "lyric_translate_lang"
 private const val KEY_LYRICS_EXTRA = "lyrics_extra_sources"
 private const val KEY_CROSSFADE = "crossfade_seconds"
+private const val KEY_GAPLESS_ALBUMS = "gapless_albums"
 
 /** Extra lyrics sources (NetEase, Genius) when Spotify and LRCLIB have none. On by default: more songs have words. */
 fun isLyricsExtraSources(c: Context): Boolean = prefs(c).getBoolean(KEY_LYRICS_EXTRA, true)
@@ -210,6 +211,26 @@ fun setLibraryGridView(c: Context, v: Boolean) = prefs(c).edit().putBoolean(KEY_
  * start before this one ends. The song fades out over its last N seconds, the next one fades
  * in. The value is Compose state, so the settings row redraws when it changes.
  */
+/**
+ * Gapless albums (on by default): with the crossfade on, two songs that follow each other on the
+ * same album (the next track, or the first of the next disc) are not faded: they play into each
+ * other with no gap, as the album was made (a live record, a continuous mix, a concept album).
+ * The players are gapless by themselves (one ExoPlayer playlist, encoder delay and padding
+ * trimmed); this keeps the crossfade from undoing it. AutoMix has its own "keep album order".
+ */
+object GaplessPref {
+    var albums by androidx.compose.runtime.mutableStateOf(
+        prefs(com.music.spotui.di.Graph.app).getBoolean(KEY_GAPLESS_ALBUMS, true),
+    )
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        albums = value
+        prefs(c).edit().putBoolean(KEY_GAPLESS_ALBUMS, value).apply()
+        com.music.spotui.di.LocalPlayer.crossfadeChanged()
+    }
+}
+
 object CrossfadePref {
     const val MAX = 12
     var seconds by androidx.compose.runtime.mutableStateOf(

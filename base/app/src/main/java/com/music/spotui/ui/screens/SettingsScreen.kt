@@ -279,6 +279,13 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.radio.RadioFeaturePref.on,
                 onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
             )
+            // Jellyfin: adds the pinned Library row for the user's own server (see com.music.spotui.jellyfin).
+            OptionRow(
+                label = stringResource(R.string.jellyfin_settings_title),
+                detail = stringResource(R.string.jellyfin_settings_detail),
+                checked = com.music.spotui.jellyfin.JellyfinPref.on,
+                onChecked = { com.music.spotui.jellyfin.JellyfinPref.set(ctx, it) },
+            )
             // Songs marked "Not interested": skipped by lists, listed here to be shown again.
             Column(
                 Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.HiddenSongs.route) }
@@ -793,6 +800,8 @@ private fun TransitionsRow() {
         if (mode == TransitionMode.CROSSFADE) com.music.spotui.ui.components.CrossfadeSlider(
             com.music.spotui.ui.theme.AppAccent, AppText, AppMuted, Modifier.padding(top = 12.dp))
     }
+    if (mode == TransitionMode.CROSSFADE) OptionRow(stringResource(R.string.settings_gapless_albums), stringResource(R.string.settings_gapless_albums_detail),
+        checked = com.music.spotui.data.preferences.GaplessPref.albums, onChecked = { com.music.spotui.data.preferences.GaplessPref.set(ctx, it) })
     if (mode == TransitionMode.AUTOMIX) {
         // The data-plan transitions are the blend's own engine; the session DJ steers only the older planner.
         if (automix.style == 0) OptionRow(stringResource(R.string.settings_automix_segue), stringResource(R.string.settings_automix_segue_detail),

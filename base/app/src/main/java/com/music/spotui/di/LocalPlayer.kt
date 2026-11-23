@@ -996,6 +996,11 @@ object LocalPlayer {
     private fun followsOnAlbum(a: LocalTrack, b: LocalTrack): Boolean {
         // Turned off in the settings: every pair is mixed.
         if (!com.music.spotui.automix.AutoMix.albumOrder) return false
+        return albumNeighbours(a, b)
+    }
+
+    /** [b] is the song after [a] on their album (see [followsOnAlbum]), whatever the settings. */
+    private fun albumNeighbours(a: LocalTrack, b: LocalTrack): Boolean {
         val x = a.album.trim(); val y = b.album.trim()
         if (x.isEmpty() || x.equals("<unknown>", true) || !x.equals(y, ignoreCase = true)) return false
         if (a.trackNo > 0 && b.trackNo > 0) {
@@ -1579,7 +1584,18 @@ object LocalPlayer {
 
     private fun canFade(p: ExoPlayer): Boolean =
         CrossfadePref.seconds > 0 && !LocalRepeat.loopsSong(repeat, p.mediaItemCount) && p.nextMediaItemIndex != C.INDEX_UNSET &&
-            p.currentMediaItem != null && p.playWhenReady && !CastPlayback.active
+            p.currentMediaItem != null && p.playWhenReady && !CastPlayback.active && !gaplessNext(p)
+
+    /**
+     * The next song follows this one on their album and Gapless albums is on: no crossfade, the
+     * playlist plays it on from this one's last sample (see GaplessPref).
+     */
+    private fun gaplessNext(p: ExoPlayer): Boolean {
+        if (!com.music.spotui.data.preferences.GaplessPref.albums) return false
+        val a = tracks.getOrNull(p.currentMediaItemIndex) ?: return false
+        val b = tracks.getOrNull(p.nextMediaItemIndex) ?: return false
+        return albumNeighbours(a, b)
+    }
 
     /** How long a crossfade's copy of the song may take to be ready, on Wi-Fi and on a metered network. */
     private const val FADE_READY_MS = 1_500L

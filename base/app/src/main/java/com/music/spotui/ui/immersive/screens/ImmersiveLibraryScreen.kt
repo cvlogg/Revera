@@ -330,7 +330,7 @@ fun ImmersiveLibraryScreen(navController: NavController) {
 /** The library rows that hold songs rather than a playlist, for [LibraryChips.apply]. */
 private val LIBRARY_SONG_IDS = setOf(
     Api.HomeCache.LIKED_SONGS_ID, Api.HomeCache.LOCAL_FILES_ID, Api.HomeCache.DOWNLOADS_ID,
-    com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID,
+    com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID, com.music.spotui.jellyfin.JellyfinPref.LIBRARY_ENTRY_ID,
 )
 
 /** The collapse fraction (0..1) of a grid page, as [rememberTopBarCollapse] gives a list's. */
@@ -362,10 +362,12 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
     val hasDownloads = com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty() ||
         com.music.spotui.data.offline.OfflineDownloader.requests.isNotEmpty()
     val radioOn = com.music.spotui.radio.RadioFeaturePref.on
+    val jellyfinOn = com.music.spotui.jellyfin.JellyfinPref.on
+    val jellyfinName = stringResource(R.string.jellyfin_title)
     val base = (entries as? Response.Success)?.data ?: emptyList()
     val localShown = com.music.spotui.data.preferences.LocalFilesPref.shown
     val rootPinned = base.indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + (if (localShown) 2 else 1) +
-        (if (radioOn) 1 else 0) + (if (hasDownloads) 1 else 0)
+        (if (radioOn) 1 else 0) + (if (jellyfinOn) 1 else 0) + (if (hasDownloads) 1 else 0)
     val all = base.map {
         if (it.spotifyId == Api.HomeCache.LIKED_SONGS_ID) it.copy(name = likedName, subtitle = "") else it
     }.let { list ->
@@ -377,6 +379,11 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
         val radio = LibraryEntry(
             spotifyId = com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID, name = radioName, subtitle = "",
             coverUri = "android.resource://$packageName/drawable/live_radio_cover", isPlaylist = true,
+        )
+        // Jellyfin, under Live Radio — behind the Settings > Library toggle.
+        val jellyfin = LibraryEntry(
+            spotifyId = com.music.spotui.jellyfin.JellyfinPref.LIBRARY_ENTRY_ID, name = jellyfinName, subtitle = "",
+            coverUri = "android.resource://$packageName/drawable/jellyfin_cover", isPlaylist = true,
         )
         val downloads = LibraryEntry(
             spotifyId = Api.HomeCache.DOWNLOADS_ID, name = downloadsName, subtitle = "", coverUri = "", isPlaylist = true,
@@ -390,6 +397,7 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
             )
         }
         list.take(at) + (if (localShown) listOf(local) else emptyList()) + (if (radioOn) listOf(radio) else emptyList()) +
+            (if (jellyfinOn) listOf(jellyfin) else emptyList()) +
             (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
     }.let { list ->
         LibraryOrder.version
@@ -479,6 +487,7 @@ private fun prefetchLibraryEntry(entry: LibraryEntry) = when {
     entry.isFolder || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) || entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX) -> Unit
     entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId == Api.HomeCache.DOWNLOADS_ID || entry.spotifyId == Api.HomeCache.EPISODES_ID || entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID -> Unit
     entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID -> Unit
+    entry.spotifyId == com.music.spotui.jellyfin.JellyfinPref.LIBRARY_ENTRY_ID -> Unit
     entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID -> ContextViewModel.prefetch("liked", "")
     entry.isPlaylist -> ContextViewModel.prefetch("playlist", entry.spotifyId)
     else -> ContextViewModel.prefetch("album", entry.spotifyId)
@@ -491,6 +500,7 @@ private fun openLibraryEntry(entry: LibraryEntry, navController: NavController) 
     else if (entry.spotifyId == Api.HomeCache.DOWNLOADS_ID) navController.navigate(Routes.Downloads.route)
     else if (entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID) navController.navigate(Routes.LocalFiles.route)
     else if (entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID) navController.navigate(Routes.LiveRadio.route)
+    else if (entry.spotifyId == com.music.spotui.jellyfin.JellyfinPref.LIBRARY_ENTRY_ID) navController.navigate(Routes.Jellyfin.route)
     else if (entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
     else if (entry.spotifyId == Api.HomeCache.EPISODES_ID) navController.navigate(Routes.Episodes.route)
     else if (entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID) navController.navigate(Routes.NewEpisodes.route)

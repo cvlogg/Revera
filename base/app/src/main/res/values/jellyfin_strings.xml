@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jellyfin (jellyfin/ package): the user's own Jellyfin server's music library. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="jellyfin_title">Jellyfin</string>
+    <string name="jellyfin_settings_title">Jellyfin</string>
+    <string name="jellyfin_settings_detail">Adds a Jellyfin folder to Your Library, under Local Files: sign in to your own Jellyfin server and play its music library. Songs stream as their original files, so albums play gapless.</string>
+    <string name="jellyfin_sign_in_subtitle">Sign in to your Jellyfin server to play its music library.</string>
+    <string name="jellyfin_server">Server address</string>
+    <string name="jellyfin_user">User name</string>
+    <string name="jellyfin_password">Password</string>
+    <string name="jellyfin_sign_in">Sign in</string>
+    <string name="jellyfin_sign_out">Sign out</string>
+    <string name="jellyfin_http_note">This address is not encrypted (http): your password and music cross the network as they are. Fine at home; use https over the internet.</string>
+    <string name="jellyfin_error_unreachable">The server could not be reached. Check its address and that your phone is on the same network.</string>
+    <string name="jellyfin_error_login">The server refused the user name or password. Sign in again.</string>
+    <string name="jellyfin_error_no_library">This user has no music library on the server.</string>
+    <string name="jellyfin_search_hint">Search your library</string>
+    <string name="jellyfin_no_results">Nothing found</string>
+    <string name="jellyfin_songs">Songs</string>
+    <string name="jellyfin_albums">Albums</string>
+    <string name="jellyfin_add_to_queue">Add to queue</string>
+    <string name="jellyfin_added_to_queue">%1$s added to the queue</string>
+    <string name="settings_gapless_albums">Gapless albums</string>
+    <string name="settings_gapless_albums_detail">No crossfade between songs that follow each other on the same album: live records and continuous mixes play on with no gap and no fade.</string>
+</resources>
