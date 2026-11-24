@@ -89,7 +89,7 @@
     <string name="jellyfin_playing_from_genre">Playing from Genre</string>
     <string name="jellyfin_playing_from">Playing from</string>
     <string name="settings_custom_font_title">Custom font</string>
-    <string name="settings_custom_font_detail">Use font files from your phone (.ttf or .otf) for the whole app. Pick several at once for Regular, Bold and so on.</string>
+    <string name="settings_custom_font_detail">Use font files from your phone (.ttf or .otf) for the whole app. Pick Regular and Bold together, or add another weight of the same font later.</string>
     <string name="settings_custom_font_using">Using %1$s. Tap to pick other files.</string>
     <string name="settings_custom_font_remove">Remove</string>
     <string name="settings_custom_font_done">Font applied</string>

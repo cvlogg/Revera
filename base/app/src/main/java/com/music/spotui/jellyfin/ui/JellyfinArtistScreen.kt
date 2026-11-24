@@ -124,8 +124,10 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
                 FillImage(images, Modifier.fillMaxSize())
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.45f to Color.Transparent,
                     1f to Color.Black.copy(alpha = 0.55f))))
-                Text(a.name, color = Color.White, fontSize = if (a.name.length > 18) 36.sp else 48.sp, fontWeight = FontWeight.ExtraBold,
-                    lineHeight = if (a.name.length > 18) 40.sp else 52.sp, letterSpacing = (-1).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                // The size and weight of the official artist page (measured: 82% of the 48 sp this was);
+                // Bold, so a font's own Bold file is used when one was picked (Settings, Custom font).
+                Text(a.name, color = Color.White, fontSize = if (a.name.length > 22) 32.sp else 39.5.sp, fontWeight = FontWeight.Bold,
+                    lineHeight = if (a.name.length > 22) 36.sp else 44.sp, letterSpacing = (-0.8).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 18.dp))
                 ArtistMenu(Modifier.align(Alignment.TopEnd), onPicture = { changing = true }) {
                     scope.launch { runCatching { everything().forEach { JellyfinPlayback.enqueue(it, next = false) } } }

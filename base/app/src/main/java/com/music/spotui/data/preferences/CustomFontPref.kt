@@ -61,8 +61,10 @@ object CustomFontPref {
     }
 
     /**
-     * Copies the picked files in place of the ones before. False when none is a font Android can
-     * read (then the font before stays).
+     * Copies the picked files. Files of the font already in use (same name before the "-", e.g.
+     * SpotifyMix-Bold after SpotifyMix-Regular) are added to it, a weight picked again replacing
+     * its file; another font replaces the one before. False when none is a font Android can read
+     * (then the font before stays).
      */
     fun import(c: Context, uris: List<Uri>): Boolean {
         val tmp = File(c.filesDir, "$DIR.new").apply { deleteRecursively(); mkdirs() }
@@ -77,8 +79,16 @@ object CustomFontPref {
             if (!ok) out.delete() else if (first.isEmpty()) first = display.substringBeforeLast('.').substringBefore('-').ifBlank { display }
         }
         if (tmp.listFiles().isNullOrEmpty()) { tmp.deleteRecursively(); return false }
-        dir(c).deleteRecursively()
-        tmp.renameTo(dir(c))
+        if (active && first.equals(name, ignoreCase = true)) {
+            // More weights of the same font: added to the files already there.
+            dir(c).mkdirs()
+            tmp.listFiles()?.forEach { f -> f.copyTo(File(dir(c), f.name), overwrite = true) }
+            tmp.deleteRecursively()
+            first = name
+        } else {
+            dir(c).deleteRecursively()
+            tmp.renameTo(dir(c))
+        }
         name = first
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_NAME, first).apply()
         cached = null
