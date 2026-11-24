@@ -306,6 +306,8 @@ internal fun CurrentLyricLine(
     onOpenLyrics: () -> Unit,
     modifier: Modifier = Modifier,
     visible: Boolean = true,
+    /** The official player's line: larger and bold, the whole width, no arrow. */
+    large: Boolean = false,
 ) {
     if (!visible) {
         Spacer(modifier.height(lyricPreviewHeight()))
@@ -374,7 +376,8 @@ internal fun CurrentLyricLine(
         contentAlignment = Alignment.CenterStart,
     ) {
         val previewMaxLines = com.music.spotui.data.preferences.PlayerLyricsPreviewLinesPref.lines
-        val lyricStyle = TextStyle(fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
+        val lyricStyle = if (large) TextStyle(fontSize = 16.5.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
+            else TextStyle(fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
         AnimatedContent(
             modifier = Modifier.clipToBounds(),
             targetState = activeLine,
@@ -441,8 +444,8 @@ internal fun CurrentLyricLine(
                             )
                         }
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
+                    if (!large) Spacer(Modifier.width(4.dp))
+                    if (!large) Icon(
                         imageVector = Icons.Rounded.ChevronRight,
                         contentDescription = null,
                         tint = LocalPlayerTint.current.copy(alpha = 0.55f),

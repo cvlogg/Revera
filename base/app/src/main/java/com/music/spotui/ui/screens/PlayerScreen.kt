@@ -491,7 +491,8 @@ fun PlayerScreen(navController: NavController) {
                     fallbackName = playerViewModel.currentSongAlbum.value,
                 )
                 // Official: the cover starts closer to the header.
-                Spacer(modifier = Modifier.height(if (shortWindow) 4.dp else 14.dp))
+                // Measured on the official player: 6 dp from the header to the cover.
+                Spacer(modifier = Modifier.height(if (shortWindow) 4.dp else 6.dp))
             }
         }
         val mediaArea: @Composable (Modifier, Alignment) -> Unit = { mediaModifier, mediaAlignment ->
@@ -513,7 +514,8 @@ fun PlayerScreen(navController: NavController) {
             // The cover: the width less its 24dp margins, or all the height when that is shorter.
             // The margins used to be taken off the height-bound side too, a cover 48dp smaller
             // than the room it had on most phones (reported: it looks small).
-            val coverInset = ((artSide - minOf(contentWidth - 48.dp, maxHeight)) / 2).coerceAtLeast(0.dp)
+            // 26 dp each side, as measured on the official player.
+            val coverInset = ((artSide - minOf(contentWidth - 52.dp, maxHeight)) / 2).coerceAtLeast(0.dp)
             Box(modifier = Modifier.size(artSide).pointerInput(immersive, videoOn, canvasOn) {
                 detectTapGestures(onTap = {
                     // A tap on a Canvas hides the rest to show the whole clip. A plain cover has
@@ -627,7 +629,8 @@ fun PlayerScreen(navController: NavController) {
                     if (videoReady || videoOn) 1f else 0f, tween(250), label = "pillIn",
                 )
                 // A short window keeps the pill (32 dp) but not the gap under it.
-                Box(modifier = Modifier.fillMaxWidth().height(if (shortWindow) 36.dp else 52.dp), contentAlignment = Alignment.TopCenter) {
+                // 36 dp: with the lyric line's own room, the official 49 dp from the cover to the lyric.
+                Box(modifier = Modifier.fillMaxWidth().height(if (shortWindow || !pillAboveTitle) 36.dp else 52.dp), contentAlignment = Alignment.TopCenter) {
                     if (pillAboveTitle && pillIn > 0f) com.music.spotui.ui.components.VideoSwitchPill(
                         on = videoOn,
                         modifier = Modifier
@@ -648,7 +651,10 @@ fun PlayerScreen(navController: NavController) {
                         onOpenLyrics = { showLyrics = true },
                         modifier = Modifier.padding(horizontal = 24.dp),
                         visible = !showLyrics,
+                        large = true,
                     )
+                    // The official player leaves the lyric line apart: 55 dp from it to the title.
+                    Spacer(Modifier.height(if (shortWindow) 12.dp else 41.dp))
                 }
                 PlayerInfo(
                     songTitle = outgoing?.title ?: songTitle,
@@ -695,7 +701,7 @@ fun PlayerScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .padding(top = if (shortWindow) 6.dp else 11.dp),
+                        .padding(top = if (shortWindow) 6.dp else 7.dp),
                 )
                 PlayerTimeLabels(Modifier.padding(horizontal = 24.dp)) {
                     ElapsedLabel(songPlayingState, if (isDragging) (dragValue * duration).toLong() else null,
@@ -761,7 +767,9 @@ fun PlayerScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxHeight()
                 .width(contentWidth)
-                .navigationBarsPadding(),
+                // No navigation bar padding here: the page stops above the lyrics card's peek,
+                // which is what sits over the navigation bar (it cost the cover ~24 dp).
+                .then(if (com.music.spotui.data.preferences.PlayerLyricsCardPref.shown) Modifier else Modifier.navigationBarsPadding()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             topBar()
@@ -1358,7 +1366,7 @@ fun PlayerFull(
             // the time labels and 74dp above the device row's centre (the row is 48 dp tall now).
             // Each glyph answers in a 48 dp square (shuffle and repeat were 28 dp, previous and
             // next 40): the side paddings give back the difference, the centres stay put.
-            .padding(start = 12.dp, end = 12.dp, top = if (compact) 8.dp else 18.dp, bottom = if (compact) 4.dp else 18.dp)
+            .padding(start = 12.dp, end = 12.dp, top = if (compact) 8.dp else 13.dp, bottom = if (compact) 4.dp else 16.dp)
             .height(64.dp)
     ) {
         Icon(
