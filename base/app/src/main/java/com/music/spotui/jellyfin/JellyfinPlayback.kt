@@ -30,6 +30,37 @@ object JellyfinPlayback {
     /** Every Jellyfin song handed to the player, by its LocalTrack id: the player's artist and album links read it. */
     private val known = ConcurrentHashMap<Long, JellyfinTrack>()
 
+    /** A cover address that loads, for a song whose first one did not (see [checkCover]), by LocalTrack id. */
+    private val coverFixed = ConcurrentHashMap<Long, String>()
+    /** Songs whose cover was checked already this session. */
+    private val coverChecked = ConcurrentHashMap.newKeySet<Long>()
+
+    /** The cover to show for [t]: the one found working when its own did not, else null (its own). */
+    fun coverOf(t: LocalTrack): String? = coverFixed[t.id]
+
+    /**
+     * Checks that the cover of the song playing loads; when it does not, tries the other addresses
+     * of that picture and keeps the first that does (the player shows it at its next update).
+     * Each step is logged, so a cover still missing says why in the diagnostic report.
+     */
+    private fun checkCover(t: JellyfinTrack) {
+        val id = stableId(t.id)
+        if (!coverChecked.add(id)) return
+        val io = CoroutineScope(Dispatchers.IO)
+        io.launch {
+            val candidates = JellyfinApi.trackImageCandidates(t, 800)
+            for ((i, url) in candidates.withIndex()) {
+                val result = runCatching { JellyfinApi.checkImage(url) }.getOrElse { "error ${it.javaClass.simpleName}" }
+                val where = url.substringAfter("/Items/").substringBefore("?") + "?" + url.substringAfter("?", "")
+                app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: try ${i + 1}/${candidates.size} $where -> $result")
+                if (result == "ok") {
+                    if (i > 0) coverFixed[id] = url
+                    return@launch
+                }
+            }
+        }
+    }
+
     /** The Jellyfin song [t] is, if it is one. */
     fun of(t: LocalTrack?): JellyfinTrack? = t?.let { known[it.id] }
 
@@ -109,6 +140,7 @@ object JellyfinPlayback {
                 val now = current()
                 val pos = LocalPlayer.position()
                 if (now?.id != item) {
+                    now?.let(::checkCover)
                     item?.let { old -> val at = lastPos; send { JellyfinApi.reportStopped(old, at) } }
                     item = now?.id; counted = false; lastProgress = System.currentTimeMillis()
                     now?.let { t -> send { JellyfinApi.reportStart(t.id, pos) } }

@@ -372,6 +372,39 @@ object JellyfinApi {
         else -> untaggedImageUrl(t.id, size)
     }
 
+    /**
+     * Every address the cover of [t] may answer at, best first: the one the player asks, then
+     * other sizes, the server's own format, the album's and the song's own pictures named or not.
+     */
+    fun trackImageCandidates(t: JellyfinTrack, size: Int): List<String> {
+        val out = LinkedHashSet<String>()
+        out += trackImageUrl(t, size)
+        if (t.imageTag.isNotBlank()) {
+            out += imageUrl(t.imageItemId, t.imageTag, 600)
+            out += url(JellyfinPref.server, "/Items/${t.imageItemId}/Images/Primary", mapOf("tag" to t.imageTag, "maxHeight" to size.toString())).toString()
+        }
+        for (id in listOf(t.albumId, t.id).filter { it.isNotBlank() }) {
+            out += untaggedImageUrl(id, size)
+            out += url(JellyfinPref.server, "/Items/$id/Images/Primary", mapOf("maxHeight" to size.toString())).toString()
+        }
+        return out.filter { it.isNotBlank() }
+    }
+
+    /** "ok", or why [imageUrl] does not give an image Android can show (HTTP status, not an image, no answer). */
+    fun checkImage(imageUrl: String): String = try {
+        http.newCall(Request.Builder().url(imageUrl).get().build()).execute().use { r ->
+            if (!r.isSuccessful) "HTTP ${r.code}"
+            else {
+                val bytes = r.body?.bytes() ?: ByteArray(0)
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                if (bounds.outWidth > 0) "ok" else "not an image (${r.header("Content-Type")}, ${bytes.size} bytes)"
+            }
+        }
+    } catch (e: IOException) {
+        "no answer (${e.javaClass.simpleName})"
+    }
+
     private fun untaggedImageUrl(itemId: String, size: Int): String =
         url(JellyfinPref.server, "/Items/$itemId/Images/Primary",
             mapOf("fillHeight" to size.toString(), "fillWidth" to size.toString(), "quality" to "90", "format" to "Jpg")).toString()

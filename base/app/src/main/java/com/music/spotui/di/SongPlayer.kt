@@ -3962,7 +3962,7 @@ object SongPlayer {
     private fun localSong(t: com.music.spotui.data.local.LocalTrack, dur: Long = t.durationMs): SongsModel {
         val trackId = streamedTrackId(t)
         return SongsModel(id = if (trackId.isNotBlank()) songIdFor(trackId, "") else ("local:" + t.id).hashCode() and 0x7fffffff, title = t.title, album = t.album,
-            singer = t.artist, coverUri = t.artUri.toString(), url = "local:${t.uri}", durationMs = dur.toInt(), spotifyTrackId = trackId)
+            singer = t.artist, coverUri = com.music.spotui.jellyfin.JellyfinPlayback.coverOf(t) ?: t.artUri.toString(), url = "local:${t.uri}", durationMs = dur.toInt(), spotifyTrackId = trackId)
     }
 
     /**
