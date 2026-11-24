@@ -58,6 +58,7 @@ import com.music.spotui.data.BetaLogs
  */
 @Composable
 fun BetaLogButton(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
     val grow = remember { androidx.compose.animation.core.Animatable(0f) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -81,7 +82,11 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
                             kotlinx.coroutines.delay((140 - 100 * grow.value).toLong())
                         }
                     }
+                    val start = System.currentTimeMillis()
                     tryAwaitRelease()
+                    // A short tap: say how it opens (it did nothing, and looked broken).
+                    if (!open && System.currentTimeMillis() - start < 300)
+                        Toast.makeText(context, R.string.beta_logs_hold_hint, Toast.LENGTH_SHORT).show()
                     job.cancel()
                     buzz.cancel()
                     scope.launch { grow.animateTo(0f, androidx.compose.animation.core.tween(150)) }

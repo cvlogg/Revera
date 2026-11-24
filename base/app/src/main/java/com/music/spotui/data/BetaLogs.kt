@@ -61,6 +61,8 @@ object BetaLogs {
         Regex("Bearer\\s+[A-Za-z0-9._\\-]+") to "Bearer <hidden>",
         Regex("\"(accessToken|access_token|clientToken|client_token|token|refresh_token)\"\\s*:\\s*\"[^\"]*\"") to "\"$1\":\"<hidden>\"",
         Regex("(access_token|token)=[^&\\s\"]+") to "$1=<hidden>",
+        // A Jellyfin song's or picture's address carries the session's key.
+        Regex("(?i)(ApiKey|api_key|X-Emby-Token)=[^&\\s\"]+") to "$1=<hidden>",
         Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}") to "<email>",
         Regex("\"(email|username|userName|birthdate|country)\"\\s*:\\s*\"[^\"]*\"") to "\"$1\":\"<hidden>\"",
         Regex("spotify:user:[^\\s\"',)]+") to "spotify:user:<user>",

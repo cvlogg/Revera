@@ -32,8 +32,6 @@ object JellyfinPlayback {
 
     /** A cover address that loads, for a song whose first one did not (see [checkCover]), by LocalTrack id. */
     private val coverFixed = ConcurrentHashMap<Long, String>()
-    /** Songs whose cover was checked already this session. */
-    private val coverChecked = ConcurrentHashMap.newKeySet<Long>()
 
     /** The cover to show for [t]: the one found working when its own did not, else null (its own). */
     fun coverOf(t: LocalTrack): String? = coverFixed[t.id]
@@ -45,19 +43,23 @@ object JellyfinPlayback {
      */
     private fun checkCover(t: JellyfinTrack) {
         val id = stableId(t.id)
-        if (!coverChecked.add(id)) return
+        // Each time the song starts (not once a session): the log then always holds the check of
+        // the song just played.
         val io = CoroutineScope(Dispatchers.IO)
         io.launch {
             val candidates = JellyfinApi.trackImageCandidates(t, 800)
+            val named = when { t.imageTag.isBlank() -> "none"; t.imageItemId == t.albumId -> "the album's"; else -> "its own" }
+            app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: the server names $named picture (album ${t.albumId.take(8)}, song ${t.id.take(8)})")
             for ((i, url) in candidates.withIndex()) {
                 val result = runCatching { JellyfinApi.checkImage(url) }.getOrElse { "error ${it.javaClass.simpleName}" }
                 val where = url.substringAfter("/Items/").substringBefore("?") + "?" + url.substringAfter("?", "")
                 app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: try ${i + 1}/${candidates.size} $where -> $result")
                 if (result == "ok") {
-                    if (i > 0) coverFixed[id] = url
+                    if (i > 0) coverFixed[id] = url else coverFixed.remove(id)
                     return@launch
                 }
             }
+            app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: no address gave a picture")
         }
     }
 
