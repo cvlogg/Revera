@@ -127,6 +127,12 @@ class MainActivity : AppCompatActivity() {
         signedIn = prefs.getBoolean("LoggedIn", false)
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
         accountChosen = com.music.spotui.ui.screens.Setup.accountSeen(this)
+        // Revera plays Jellyfin only: no Spotify account, no onboarding (see JellyfinOnly).
+        if (com.music.spotui.jellyfin.JellyfinOnly.ON) {
+            com.music.spotui.jellyfin.JellyfinOnly.prepare(this)
+            accountChosen = true
+            setupNeeded = false
+        }
         // A TV has one look of its own and no setup to go through (no battery or file prompts there).
         if (tv) setupNeeded = false
         root = FrameLayout(this)
@@ -146,6 +152,9 @@ class MainActivity : AppCompatActivity() {
                             setupNeeded, connecting, choosingAccount, tv,
                         )
                         when {
+                            // Jellyfin only: its sign-in is the first screen, until a server is signed in to.
+                            com.music.spotui.jellyfin.JellyfinOnly.ON && !com.music.spotui.jellyfin.JellyfinPref.signedIn ->
+                                com.music.spotui.jellyfin.ui.JellyfinSignInPage()
                             showLook -> com.music.spotui.ui.look.LookStep(onNext = {
                                 com.music.spotui.data.preferences.LookPref.setChosen(this@MainActivity); showLook = false
                                 setupNeeded = com.music.spotui.ui.screens.Setup.needed(this@MainActivity)

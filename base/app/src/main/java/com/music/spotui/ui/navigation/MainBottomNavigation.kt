@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.music.spotui.ui.components.MiniPlayer
+import com.music.spotui.ui.components.pressable
 
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
@@ -149,7 +150,7 @@ fun MainBottomNavigation(navController: NavHostController) {
                     ) {
                         TabItems.forEach { item ->
                             NavBarTab(
-                                iconRes = item.icon,
+                                iconRes = navIcon(item, tabs.selected == item.route),
                                 label = if (item.labelRes != 0) stringResource(item.labelRes) else item.label,
                                 selected = tabs.selected == item.route,
                                 onClick = { tabs.open(item) },
@@ -241,7 +242,7 @@ fun MainNavigationRail(navController: NavHostController) {
         TabItems.forEach { item ->
             Row(Modifier.fillMaxWidth().height(72.dp)) {
                 NavBarTab(
-                    iconRes = item.icon,
+                    iconRes = navIcon(item, tabs.selected == item.route),
                     label = if (item.labelRes != 0) stringResource(item.labelRes) else item.label,
                     selected = tabs.selected == item.route,
                     onClick = { tabs.open(item) },
@@ -249,6 +250,14 @@ fun MainNavigationRail(navController: NavHostController) {
             }
         }
     }
+}
+
+/** The tab's glyph: filled on the tab shown, outlined on the others. */
+private fun navIcon(item: Routes, selected: Boolean): Int = when (item) {
+    Routes.Home -> if (selected) app.myspoti.engine.R.drawable.nav_home_filled else app.myspoti.engine.R.drawable.nav_home_outline
+    Routes.Search -> if (selected) app.myspoti.engine.R.drawable.nav_search_filled else app.myspoti.engine.R.drawable.nav_search_outline
+    Routes.Library -> if (selected) app.myspoti.engine.R.drawable.nav_library_filled else app.myspoti.engine.R.drawable.nav_library_outline
+    else -> item.icon
 }
 
 // Official app metrics. Material3's NavigationBarItem measures its icon slot at a
@@ -267,19 +276,14 @@ private fun RowScope.NavBarTab(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    // Spotify's idle grey, lighter than Color.Gray which read as "disabled".
-    val tint = if (selected) AppText else AppMuted
+    // White on the tab shown, a lighter grey on the others; the change fades rather than jumps.
+    val tint by androidx.compose.animation.animateColorAsState(if (selected) AppText else AppMuted, label = "tab tint")
     Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            // No ripple: the bar is a plain strip of tabs, and the tint is the feedback.
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = label,
-                onClick = onClick,
-            ),
+            // No ripple: the tab shrinks a little under the finger and springs back, and the tint is the feedback.
+            .pressable(0.88f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -299,7 +303,7 @@ private fun RowScope.NavBarTab(
                 color = tint,
                 fontSize = 11.sp,
                 lineHeight = 12.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 letterSpacing = 0.2.sp,
                 maxLines = 1,
                 // Four tabs: a long label (Bibliothèque, with large text) shrinks a little instead of being cut.

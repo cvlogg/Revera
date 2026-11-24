@@ -87,6 +87,10 @@ fun episodeRoute(id: String, name: String = ""): String =
  * re-resolving the name via a fuzzy search ("RAM" must not open "Rammstein").
  */
 fun artistRoute(name: String, id: String = ""): String {
+    // Jellyfin only: the Jellyfin artist (the song playing's, when the link names no Jellyfin id).
+    if (com.music.spotui.jellyfin.JellyfinOnly.ON) return jellyfinRoute(com.music.spotui.jellyfin.ui.JellyfinRoutes.ARTIST, id) {
+        com.music.spotui.jellyfin.JellyfinPlayback.current()?.artistId
+    }
     val base = "${Routes.Artist.route}/${android.net.Uri.encode(name)}"
     return if (id.isBlank()) base
     else "$base?id=${android.net.Uri.encode(id)}"
@@ -97,8 +101,19 @@ fun artistRoute(name: String, id: String = ""): String {
  * different artists resolve to the right one. The artist value is URL-encoded.
  */
 fun albumRoute(name: String, artist: String = "", id: String = ""): String =
-    "${Routes.Album.route}/${android.net.Uri.encode(name.ifBlank { "album" })}" +
+    if (com.music.spotui.jellyfin.JellyfinOnly.ON) jellyfinRoute(com.music.spotui.jellyfin.ui.JellyfinRoutes.ALBUM, id) {
+        com.music.spotui.jellyfin.JellyfinPlayback.current()?.albumId
+    } else "${Routes.Album.route}/${android.net.Uri.encode(name.ifBlank { "album" })}" +
         "?artist=${android.net.Uri.encode(artist)}&id=${android.net.Uri.encode(id)}"
+
+/** A Jellyfin item id: 32 hex digits (with or without dashes), never a Spotify id. */
+private val JELLYFIN_ID = Regex("^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$")
+
+/** [page]/[id] when [id] is a Jellyfin id, else [playing]'s, else Search (nothing else to open). */
+private fun jellyfinRoute(page: String, id: String, playing: () -> String?): String {
+    val jf = id.takeIf { JELLYFIN_ID.matches(it) } ?: playing()?.takeIf { it.isNotBlank() }
+    return if (jf != null) "$page/${jf.replace("-", "")}" else Routes.Search.route
+}
 
 /**
  * Opens a page from outside the page's own UI (a shared link): a second link to the page already

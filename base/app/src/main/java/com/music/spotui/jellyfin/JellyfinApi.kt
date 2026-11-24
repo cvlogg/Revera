@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
@@ -31,6 +32,11 @@ data class JellyfinAlbum(
     val year: Int,
     /** The cover's image tag, "" when the album has none. */
     val imageTag: String,
+    /** The first album artist's id, "" unknown. */
+    val artistId: String = "",
+    /** The album's genres (id to name), when the list was asked with them. */
+    val genres: List<Pair<String, String>> = emptyList(),
+    val favorite: Boolean = false,
 )
 
 data class JellyfinTrack(
@@ -45,15 +51,34 @@ data class JellyfinTrack(
     /** The id of the item whose primary image is the cover (the album, else the track itself), "" none. */
     val imageItemId: String,
     val imageTag: String,
+    /** The first artist's id (the song's, else the album's), "" unknown. */
+    val artistId: String = "",
+    /** How many times this user played it, as the server counts. */
+    val playCount: Int = 0,
 )
+
+data class JellyfinArtist(
+    val id: String,
+    val name: String,
+    val imageTag: String,
+    val backdropTag: String = "",
+    val favorite: Boolean = false,
+    val albumCount: Int = 0,
+    val songCount: Int = 0,
+    val overview: String = "",
+)
+
+data class JellyfinGenre(val id: String, val name: String, val imageItemId: String, val imageTag: String)
+
+data class JellyfinPlaylist(val id: String, val name: String, val imageTag: String, val songCount: Int)
 
 /** The server said no to the user name and password (or to the saved token): signing in again is needed. */
 class JellyfinAuthException(message: String) : IOException(message)
 
 /**
- * A thin client for the user's own Jellyfin server (https://jellyfin.org, REST API), only what
- * the Jellyfin screen needs: sign in, the music libraries, their albums, an album's songs, a
- * search, and each song's audio address.
+ * A thin client for the user's own Jellyfin server (https://jellyfin.org, REST API): sign in, the
+ * music libraries, albums, artists, genres, playlists, searches, favourites, play reports, and
+ * each song's audio address.
  *
  * The audio is asked as the original file (`/Audio/{id}/stream?static=true`), never transcoded:
  * the player then reads the file's own encoder delay and padding (LAME/Xing for MP3, iTunSMPB for
@@ -102,12 +127,28 @@ object JellyfinApi {
             if (r.code == 401 || r.code == 403) throw JellyfinAuthException("HTTP ${r.code}")
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
             val body = r.body?.string().orEmpty()
-            return json.parseToJsonElement(body)
+            return if (body.isBlank()) JsonObject(emptyMap()) else json.parseToJsonElement(body)
         }
     }
 
-    private fun get(path: String, query: Map<String, String> = emptyMap()): JsonElement =
-        call(Request.Builder().url(url(JellyfinPref.server, path, query)).header("Authorization", authHeader(JellyfinPref.token)).get().build())
+    private fun request(path: String, query: Map<String, String> = emptyMap()) =
+        Request.Builder().url(url(JellyfinPref.server, path, query)).header("Authorization", authHeader(JellyfinPref.token))
+
+    private fun get(path: String, query: Map<String, String> = emptyMap()): JsonElement = call(request(path, query).get().build())
+
+    private fun post(path: String, body: JsonObject? = null): JsonElement =
+        call(request(path).post((body?.toString() ?: "").toRequestBody("application/json".toMediaType())).build())
+
+    private fun delete(path: String): JsonElement = call(request(path).delete().build())
+
+    /** [newer] first; on a 404 (an older server), [older]. */
+    private fun <T> eitherRoute(newer: () -> T, older: () -> T): T = try {
+        newer()
+    } catch (e: JellyfinAuthException) {
+        throw e
+    } catch (e: IOException) {
+        older()
+    }
 
     /**
      * Signs in with a user name and password. Returns (server, user id, user name, access token).
@@ -129,14 +170,7 @@ object JellyfinApi {
 
     /** The user's music libraries (views whose collection type is music). */
     suspend fun libraries(): List<JellyfinLibrary> = withContext(Dispatchers.IO) {
-        // /UserViews is the 10.9+ address; /Users/{id}/Views the older one.
-        val r = try {
-            get("/UserViews", mapOf("userId" to JellyfinPref.userId))
-        } catch (e: JellyfinAuthException) {
-            throw e
-        } catch (e: IOException) {
-            get("/Users/${JellyfinPref.userId}/Views")
-        }
+        val r = eitherRoute({ get("/UserViews", mapOf("userId" to JellyfinPref.userId)) }, { get("/Users/${JellyfinPref.userId}/Views") })
         items(r).filter { it.str("CollectionType").equals("music", true) }
             .map { JellyfinLibrary(it.str("Id"), it.str("Name")) }
     }
@@ -144,16 +178,52 @@ object JellyfinApi {
     private fun itemQuery(vararg extra: Pair<String, String>): Map<String, String> =
         mapOf("userId" to JellyfinPref.userId, "recursive" to "true", "enableTotalRecordCount" to "true") + extra
 
+    private fun lib(): Map<String, String> =
+        JellyfinPref.libraryId.takeIf { it.isNotBlank() }?.let { mapOf("parentId" to it) }.orEmpty()
+
+    // ---- albums ----
+
     /** The library's albums by name, a page from [start]; the second value is how many there are in all. */
     suspend fun albums(libraryId: String, start: Int = 0, search: String = ""): Pair<List<JellyfinAlbum>, Int> = withContext(Dispatchers.IO) {
         val q = itemQuery(
             "parentId" to libraryId, "includeItemTypes" to "MusicAlbum",
             "sortBy" to "SortName", "sortOrder" to "Ascending",
             "startIndex" to start.toString(), "limit" to PAGE.toString(),
-            "fields" to "PrimaryImageAspectRatio", "enableImageTypes" to "Primary",
         ) + (if (search.isNotBlank()) mapOf("searchTerm" to search.trim()) else emptyMap())
         val r = get("/Items", q)
         items(r).map { it.toAlbum() } to ((r as? JsonObject)?.int("TotalRecordCount") ?: 0)
+    }
+
+    /** Albums of the library in an order the server knows: "DatePlayed", "DateCreated", "PlayCount", "Random". */
+    suspend fun albumsBy(sort: String, limit: Int = 20, played: Boolean = false, genreId: String = "", years: String = "", favorites: Boolean = false): List<JellyfinAlbum> = withContext(Dispatchers.IO) {
+        val q = itemQuery(
+            "includeItemTypes" to "MusicAlbum", "sortBy" to "$sort,SortName",
+            "sortOrder" to (if (sort == "SortName") "Ascending" else "Descending"), "limit" to limit.toString(),
+        ) + lib() +
+            (if (played) mapOf("filters" to "IsPlayed") else emptyMap()) +
+            (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
+            (if (years.isNotBlank()) mapOf("years" to years) else emptyMap())
+        items(get("/Items", q)).map { it.toAlbum() }
+    }
+
+    /**
+     * The albums of the songs played last, newest first: an album counts as played as soon as one
+     * of its songs is (the server marks an album played only once all its songs are).
+     */
+    suspend fun recentlyPlayedAlbums(limit: Int = 12): List<JellyfinAlbum> = withContext(Dispatchers.IO) {
+        val songs = items(get("/Items", itemQuery(
+            "includeItemTypes" to "Audio", "sortBy" to "DatePlayed", "sortOrder" to "Descending",
+            "filters" to "IsPlayed", "limit" to "120",
+        ) + lib())).map { it.toTrack() }
+        val ids = songs.map { it.albumId }.filter { it.isNotBlank() }.distinct().take(limit)
+        if (ids.isEmpty()) return@withContext emptyList()
+        val byId = items(get("/Items", mapOf("userId" to JellyfinPref.userId, "ids" to ids.joinToString(",")))).associate { it.str("Id") to it.toAlbum() }
+        ids.mapNotNull { byId[it] }
+    }
+
+    suspend fun album(id: String): JellyfinAlbum? = withContext(Dispatchers.IO) {
+        items(get("/Items", mapOf("userId" to JellyfinPref.userId, "ids" to id))).firstOrNull()?.toAlbum()
     }
 
     /** An album's songs, in disc and track order. */
@@ -165,20 +235,124 @@ object JellyfinApi {
         items(r).map { it.toTrack() }
     }
 
+    // ---- songs ----
+
     /** Songs of the library matching [search], at most a page. */
-    suspend fun searchTracks(libraryId: String, search: String): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+    suspend fun searchTracks(libraryId: String, search: String, limit: Int = PAGE): List<JellyfinTrack> = withContext(Dispatchers.IO) {
         val r = get("/Items", itemQuery(
             "parentId" to libraryId, "includeItemTypes" to "Audio", "searchTerm" to search.trim(),
-            "sortBy" to "SortName", "limit" to PAGE.toString(),
+            "sortBy" to "SortName", "limit" to limit.toString(),
         ))
         items(r).map { it.toTrack() }
     }
 
-    /** A random pick of the library's songs (the screen's shuffle button), at most a page. */
-    suspend fun randomTracks(libraryId: String): List<JellyfinTrack> = withContext(Dispatchers.IO) {
-        val r = get("/Items", itemQuery("parentId" to libraryId, "includeItemTypes" to "Audio", "sortBy" to "Random", "limit" to PAGE.toString()))
-        items(r).map { it.toTrack() }
+    /** A random pick of the library's songs (or of a genre's, or the favourites), at most a page. */
+    suspend fun randomTracks(libraryId: String, genreId: String = "", favorites: Boolean = false): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        val q = itemQuery("parentId" to libraryId, "includeItemTypes" to "Audio", "sortBy" to "Random", "limit" to PAGE.toString()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
+            (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap())
+        items(get("/Items", q)).map { it.toTrack() }
     }
+
+    /** The songs this user liked (favourites), by name. */
+    suspend fun favoriteTracks(): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("includeItemTypes" to "Audio", "filters" to "IsFavorite", "sortBy" to "SortName", "limit" to "1000") + lib())).map { it.toTrack() }
+    }
+
+    /** A random pick of albums with their genres: what the search page's genre tiles and images are made from. */
+    suspend fun albumsWithGenres(limit: Int = 150): List<JellyfinAlbum> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("includeItemTypes" to "MusicAlbum", "sortBy" to "Random", "limit" to limit.toString(),
+            "fields" to "Genres") + lib())).map { it.toAlbum() }
+    }
+
+    /** The songs this user played most, most first. */
+    suspend fun mostPlayedTracks(limit: Int = 50): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("includeItemTypes" to "Audio", "sortBy" to "PlayCount,SortName", "sortOrder" to "Descending",
+            "filters" to "IsPlayed", "limit" to limit.toString()) + lib())).map { it.toTrack() }
+    }
+
+    // ---- artists ----
+
+    /** Album artists of the library by name (or matching [search]). */
+    suspend fun artists(search: String = "", limit: Int = PAGE, start: Int = 0, favorites: Boolean = false, sort: String = "SortName"): List<JellyfinArtist> = withContext(Dispatchers.IO) {
+        val q = mapOf("userId" to JellyfinPref.userId, "sortBy" to sort, "sortOrder" to "Ascending",
+            "limit" to limit.toString(), "startIndex" to start.toString(), "fields" to "ChildCount") + lib() +
+            (if (search.isNotBlank()) mapOf("searchTerm" to search.trim()) else emptyMap()) +
+            (if (favorites) mapOf("isFavorite" to "true") else emptyMap())
+        items(get("/Artists/AlbumArtists", q)).map { it.toArtist() }
+    }
+
+    suspend fun artist(id: String): JellyfinArtist? = withContext(Dispatchers.IO) {
+        val o = eitherRoute({ get("/Items/$id", mapOf("userId" to JellyfinPref.userId)) }, { get("/Users/${JellyfinPref.userId}/Items/$id") }) as? JsonObject
+        o?.toArtist()
+    }
+
+    /** The artist's albums, newest first. */
+    suspend fun artistAlbums(artistId: String): List<JellyfinAlbum> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("albumArtistIds" to artistId, "includeItemTypes" to "MusicAlbum",
+            "sortBy" to "ProductionYear,PremiereDate,SortName", "sortOrder" to "Descending"))).map { it.toAlbum() }
+    }
+
+    /** The artist's songs this user played most, then the rest by name: the artist page's "Popular". */
+    suspend fun artistTopTracks(artistId: String, limit: Int = 10): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("artistIds" to artistId, "includeItemTypes" to "Audio",
+            "sortBy" to "PlayCount,SortName", "sortOrder" to "Descending", "limit" to limit.toString()))).map { it.toTrack() }
+    }
+
+    /** All the artist's songs, by album then track (the artist page's play and shuffle). */
+    suspend fun artistTracks(artistId: String): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("artistIds" to artistId, "includeItemTypes" to "Audio",
+            "sortBy" to "ProductionYear,Album,ParentIndexNumber,IndexNumber", "sortOrder" to "Ascending", "limit" to "500"))).map { it.toTrack() }
+    }
+
+    // ---- genres, playlists ----
+
+    suspend fun genres(limit: Int = 60): List<JellyfinGenre> = withContext(Dispatchers.IO) {
+        items(get("/MusicGenres", mapOf("userId" to JellyfinPref.userId, "sortBy" to "SortName", "limit" to limit.toString()) + lib()))
+            .map { JellyfinGenre(it.str("Id"), it.str("Name"), if (it.primaryTag().isNotBlank()) it.str("Id") else "", it.primaryTag()) }
+    }
+
+    suspend fun playlists(): List<JellyfinPlaylist> = withContext(Dispatchers.IO) {
+        items(get("/Items", itemQuery("includeItemTypes" to "Playlist", "sortBy" to "SortName", "fields" to "ChildCount")))
+            .filter { it.str("MediaType").let { m -> m.isBlank() || m.equals("Audio", true) } }
+            .map { JellyfinPlaylist(it.str("Id"), it.str("Name"), it.primaryTag(), it.int("ChildCount") ?: 0) }
+    }
+
+    suspend fun playlistTracks(id: String): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Playlists/$id/Items", mapOf("userId" to JellyfinPref.userId))).filter { it.str("Type") == "Audio" }.map { it.toTrack() }
+    }
+
+    // ---- favourites and play reports ----
+
+    suspend fun setFavorite(itemId: String, on: Boolean) = withContext(Dispatchers.IO) {
+        val u = JellyfinPref.userId
+        if (on) eitherRoute({ post("/UserFavoriteItems/$itemId?userId=$u") }, { post("/Users/$u/FavoriteItems/$itemId") })
+        else eitherRoute({ delete("/UserFavoriteItems/$itemId?userId=$u") }, { delete("/Users/$u/FavoriteItems/$itemId") })
+        Unit
+    }
+
+    private fun report(path: String, itemId: String, positionMs: Long, paused: Boolean) {
+        post(path, buildJsonObject {
+            put("ItemId", JsonPrimitive(itemId))
+            put("PositionTicks", JsonPrimitive(positionMs * 10_000L))
+            put("IsPaused", JsonPrimitive(paused))
+            put("CanSeek", JsonPrimitive(true))
+            put("PlayMethod", JsonPrimitive("DirectPlay"))
+        })
+    }
+
+    /** The server's "now playing" and its play counts: a song started, went on, stopped. Failures are the caller's to ignore. */
+    fun reportStart(itemId: String, positionMs: Long) = report("/Sessions/Playing", itemId, positionMs, false)
+    fun reportProgress(itemId: String, positionMs: Long, paused: Boolean) = report("/Sessions/Playing/Progress", itemId, positionMs, paused)
+    fun reportStopped(itemId: String, positionMs: Long) = report("/Sessions/Playing/Stopped", itemId, positionMs, false)
+
+    /** Counts a play now (the song was heard past its half): its play count and its date played. */
+    fun markPlayed(itemId: String) {
+        val u = JellyfinPref.userId
+        eitherRoute({ post("/UserPlayedItems/$itemId?userId=$u") }, { post("/Users/$u/PlayedItems/$itemId") })
+    }
+
+    // ---- addresses ----
 
     /**
      * The song's original file, as stored on the server. The token goes in the address (the player
@@ -187,11 +361,13 @@ object JellyfinApi {
     fun streamUrl(trackId: String): String = url(JellyfinPref.server, "/Audio/$trackId/stream",
         mapOf("static" to "true", "deviceId" to JellyfinPref.deviceId, "ApiKey" to JellyfinPref.token)).toString()
 
-    /** An item's primary image, [size] px high at most; "" when it has none. */
-    fun imageUrl(itemId: String, tag: String, size: Int = 400): String =
+    /** An item's image ("Primary" or "Backdrop"), [size] px at most; "" when it has none. */
+    fun imageUrl(itemId: String, tag: String, size: Int = 400, type: String = "Primary"): String =
         if (itemId.isBlank() || tag.isBlank()) ""
-        else url(JellyfinPref.server, "/Items/$itemId/Images/Primary",
+        else url(JellyfinPref.server, "/Items/$itemId/Images/$type",
             mapOf("tag" to tag, "fillHeight" to size.toString(), "fillWidth" to size.toString(), "quality" to "90")).toString()
+
+    // ---- parsing ----
 
     private fun items(r: JsonElement): List<JsonObject> =
         ((r as? JsonObject)?.get("Items") as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
@@ -199,11 +375,28 @@ object JellyfinApi {
     private fun JsonObject.str(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
     private fun JsonObject.primaryTag(): String = ((this["ImageTags"] as? JsonObject)?.get("Primary") as? JsonPrimitive)?.contentOrNull.orEmpty()
+    private fun JsonObject.firstId(key: String): String =
+        ((this[key] as? JsonArray)?.firstOrNull() as? JsonObject)?.str("Id").orEmpty()
+    private fun JsonObject.userData(): JsonObject? = this["UserData"] as? JsonObject
 
     private fun JsonObject.toAlbum() = JellyfinAlbum(
         id = str("Id"), name = str("Name"),
         artist = str("AlbumArtist").ifBlank { ((this["Artists"] as? JsonArray)?.firstOrNull() as? JsonPrimitive)?.contentOrNull.orEmpty() },
         year = int("ProductionYear") ?: 0, imageTag = primaryTag(),
+        artistId = firstId("AlbumArtists").ifBlank { firstId("ArtistItems") },
+        genres = (this["GenreItems"] as? JsonArray)?.mapNotNull { g ->
+            (g as? JsonObject)?.let { it.str("Id") to it.str("Name") }?.takeIf { it.first.isNotBlank() && it.second.isNotBlank() }
+        }.orEmpty(),
+        favorite = (userData()?.get("IsFavorite") as? JsonPrimitive)?.booleanOrNull == true,
+    )
+
+    private fun JsonObject.toArtist() = JellyfinArtist(
+        id = str("Id"), name = str("Name"), imageTag = primaryTag(),
+        backdropTag = ((this["BackdropImageTags"] as? JsonArray)?.firstOrNull() as? JsonPrimitive)?.contentOrNull.orEmpty(),
+        favorite = (userData()?.get("IsFavorite") as? JsonPrimitive)?.booleanOrNull == true,
+        albumCount = int("AlbumCount") ?: int("ChildCount") ?: 0,
+        songCount = int("SongCount") ?: 0,
+        overview = str("Overview"),
     )
 
     private fun JsonObject.toTrack(): JellyfinTrack {
@@ -221,6 +414,8 @@ object JellyfinApi {
             trackNo = if (no > 0) disc.coerceAtLeast(1) * 1000 + no else 0,
             imageItemId = if (albumTag.isNotBlank()) str("AlbumId") else if (ownTag.isNotBlank()) str("Id") else "",
             imageTag = albumTag.ifBlank { ownTag },
+            artistId = firstId("ArtistItems").ifBlank { firstId("AlbumArtists") },
+            playCount = (userData()?.get("PlayCount") as? JsonPrimitive)?.intOrNull ?: 0,
         )
     }
 }

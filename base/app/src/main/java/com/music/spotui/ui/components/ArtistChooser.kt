@@ -88,6 +88,12 @@ object ArtistChooser {
 
     /** [go] for a song, its artists looked up first. */
     fun goForTrack(trackId: String, fallbackNames: String, navigate: (String) -> Unit) {
+        // Jellyfin only: the Jellyfin song's artist page, at once (no Spotify catalogue to ask).
+        if (com.music.spotui.jellyfin.JellyfinOnly.ON) {
+            com.music.spotui.jellyfin.JellyfinPlayback.current()?.artistId?.takeIf { it.isNotBlank() }
+                ?.let { navigate("${com.music.spotui.jellyfin.ui.JellyfinRoutes.ARTIST}/$it") }
+            return
+        }
         MyspotiRuntime.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
             go(artistsOf(trackId, fallbackNames), navigate)
         }

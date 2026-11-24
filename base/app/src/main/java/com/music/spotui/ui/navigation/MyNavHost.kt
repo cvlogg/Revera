@@ -74,12 +74,15 @@ fun MyNavHost(
         popExitTransition = { if (immersiveState.value) IPages.popExit(reduceState.value)(this) else if (reduceState.value) ExitTransition.None else navPopExit(initialState, targetState) },
     ){
         page(Routes.Home.route){
+            if (com.music.spotui.jellyfin.JellyfinOnly.ON) com.music.spotui.jellyfin.ui.JellyfinHomeScreen(navHostController) else
             if (isImmersive()) com.music.spotui.ui.immersive.screens.ImmersiveHomeScreen(navHostController) else HomeScreen(navHostController)
         }
         page(Routes.Search.route){
+            if (com.music.spotui.jellyfin.JellyfinOnly.ON) com.music.spotui.jellyfin.ui.JellyfinSearchScreen(navHostController) else
             if (isImmersive()) com.music.spotui.ui.immersive.screens.ImmersiveSearchScreen(navHostController) else SearchScreen(navHostController)
         }
         page(Routes.Library.route) {
+            if (com.music.spotui.jellyfin.JellyfinOnly.ON) com.music.spotui.jellyfin.ui.JellyfinLibraryScreen(navHostController) else
             if (isImmersive()) com.music.spotui.ui.immersive.screens.ImmersiveLibraryScreen(navHostController) else LibraryScreen(navHostController)
         }
         // Older links to the player route open the player sheet over the page instead.
@@ -101,6 +104,23 @@ fun MyNavHost(
         // Live Radio (see com.music.spotui.radio): plays through LocalPlayer, as a Local Files song does.
         page(Routes.LiveRadio.route){
             if (isImmersive()) com.music.spotui.radio.ui.ImmersiveLiveRadioScreen(navHostController) else com.music.spotui.radio.ui.LiveRadioScreen(navHostController)
+        }
+
+        // Jellyfin-only pages: an artist, an album, a genre, a playlist, a whole list (see JellyfinRoutes).
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.ARTIST}/{id}") { e ->
+            com.music.spotui.jellyfin.ui.JellyfinArtistScreen(navHostController, e.arguments?.getString("id").orEmpty())
+        }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.ALBUM}/{id}") { e ->
+            com.music.spotui.jellyfin.ui.JellyfinAlbumScreen(navHostController, e.arguments?.getString("id").orEmpty())
+        }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.GENRE}/{id}?name={name}", arguments = listOf(navArgument("name") { defaultValue = "" })) { e ->
+            com.music.spotui.jellyfin.ui.JellyfinGenreScreen(navHostController, e.arguments?.getString("id").orEmpty(), e.arguments?.getString("name").orEmpty())
+        }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.PLAYLIST}/{id}?name={name}", arguments = listOf(navArgument("name") { defaultValue = "" })) { e ->
+            com.music.spotui.jellyfin.ui.JellyfinPlaylistScreen(navHostController, e.arguments?.getString("id").orEmpty(), e.arguments?.getString("name").orEmpty())
+        }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.LIST}/{kind}") { e ->
+            com.music.spotui.jellyfin.ui.JellyfinListScreen(navHostController, e.arguments?.getString("kind").orEmpty())
         }
 
         // Jellyfin (see com.music.spotui.jellyfin): the user's server, played through LocalPlayer as Local Files are.
