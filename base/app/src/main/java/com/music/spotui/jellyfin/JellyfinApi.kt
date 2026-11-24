@@ -361,11 +361,16 @@ object JellyfinApi {
     fun streamUrl(trackId: String): String = url(JellyfinPref.server, "/Audio/$trackId/stream",
         mapOf("static" to "true", "deviceId" to JellyfinPref.deviceId, "ApiKey" to JellyfinPref.token)).toString()
 
-    /** An item's image ("Primary" or "Backdrop"), [size] px at most; "" when it has none. */
+    /**
+     * An item's image ("Primary" or "Backdrop"), [size] px at most; "" when it has none. Always as
+     * a JPEG: asked bigger than the stored picture, the server can send the stored file as it is,
+     * and a cover kept as TIFF, HEIC or the like then showed in the lists (small, converted) but
+     * not in the player (big, unconverted).
+     */
     fun imageUrl(itemId: String, tag: String, size: Int = 400, type: String = "Primary"): String =
         if (itemId.isBlank() || tag.isBlank()) ""
         else url(JellyfinPref.server, "/Items/$itemId/Images/$type",
-            mapOf("tag" to tag, "fillHeight" to size.toString(), "fillWidth" to size.toString(), "quality" to "90")).toString()
+            mapOf("tag" to tag, "fillHeight" to size.toString(), "fillWidth" to size.toString(), "quality" to "90", "format" to "Jpg")).toString()
 
     // ---- parsing ----
 
