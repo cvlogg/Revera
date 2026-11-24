@@ -634,7 +634,14 @@ fun PlayerScreen(navController: NavController) {
                 )
                 // A short window keeps the pill (32 dp) but not the gap under it.
                 // 36 dp: with the lyric line's own room, the official 49 dp from the cover to the lyric.
-                Box(modifier = Modifier.fillMaxWidth().height(if (shortWindow) 36.dp else if (!pillAboveTitle && hasLyricLine) 36.dp else 52.dp), contentAlignment = Alignment.TopCenter) {
+                Box(modifier = Modifier.fillMaxWidth().height(when {
+                    shortWindow -> 36.dp
+                    pillAboveTitle -> 52.dp
+                    // Measured on the official player: the lyric line 49 dp under the cover, or with
+                    // no lyric line the cover centred between the header and the title.
+                    hasLyricLine -> 36.dp
+                    else -> 12.dp
+                }), contentAlignment = Alignment.TopCenter) {
                     if (pillAboveTitle && pillIn > 0f) com.music.spotui.ui.components.VideoSwitchPill(
                         on = videoOn,
                         modifier = Modifier
@@ -1809,7 +1816,7 @@ internal fun CanvasVideo(url: String, playing: Boolean, onFirstFrame: () -> Unit
 private const val CANVAS_FADE_MS = 680
 
 /** How much of the lyrics card shows under the buttons (its 8dp margin included). */
-private const val PLAYER_PEEK_DP = 65
+private const val PLAYER_PEEK_DP = 89
 
 /** ...on a window under [SHORT_PLAYER_DP] tall, where every dp goes to the cover. */
 private const val SHORT_PLAYER_PEEK_DP = 40
