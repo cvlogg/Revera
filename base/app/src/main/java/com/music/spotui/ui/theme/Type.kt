@@ -28,7 +28,18 @@ private fun sans(weight: Int) = Font(
 private val ownSans = FontFamily(sans(400), sans(500), sans(600), sans(700), sans(800), sans(900))
 
 /** The app's font: Manrope, or the phone's system font when chosen in the settings (AppFontPref). */
-val AppSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else ownSans
+val AppSans: FontFamily get() = when {
+    com.music.spotui.data.preferences.AppFontPref.system -> FontFamily.Default
+    else -> customFamily() ?: ownSans
+}
+
+/** The font files the user picked (Settings, Custom font), read again at each change. */
+private fun customFamily(): FontFamily? {
+    @Suppress("UNUSED_VARIABLE") val v = com.music.spotui.data.preferences.CustomFontPref.version
+    return com.music.spotui.data.preferences.CustomFontPref.family(com.music.spotui.di.Graph.app)
+}
+
+private var customTypography: Pair<FontFamily, Typography>? = null
 
 // Kept as an alias so existing references (Theme.kt etc.) don't break.
 val Montserrat: FontFamily get() = AppSans
@@ -51,4 +62,9 @@ private fun typography(family: FontFamily): Typography {
 private val ownTypography by lazy { typography(ownSans) }
 private val systemTypography by lazy { typography(FontFamily.Default) }
 
-val Typography: Typography get() = if (com.music.spotui.data.preferences.AppFontPref.system) systemTypography else ownTypography
+val Typography: Typography get() {
+    if (com.music.spotui.data.preferences.AppFontPref.system) return systemTypography
+    val custom = customFamily() ?: return ownTypography
+    customTypography?.takeIf { it.first === custom }?.let { return it.second }
+    return typography(custom).also { customTypography = custom to it }
+}

@@ -499,6 +499,7 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.AppFontPref.system,
                 onChecked = { com.music.spotui.data.preferences.AppFontPref.set(ctx, it) },
             )
+            CustomFontRow()
             LookRow()
             OrientationRow()
             LanguageRow()
@@ -1262,6 +1263,36 @@ private fun RemoveDownloadsRow() {
 }
 
 
+
+/**
+ * "Custom font": pick font files on the phone (Regular, Bold… several at once), used for the whole
+ * app; Remove goes back to the app's own font.
+ */
+@Composable
+private fun CustomFontRow() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val pref = com.music.spotui.data.preferences.CustomFontPref
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        val ok = pref.import(ctx, uris)
+        android.widget.Toast.makeText(ctx, ctx.getString(if (ok) R.string.settings_custom_font_done else R.string.settings_custom_font_failed),
+            android.widget.Toast.LENGTH_SHORT).show()
+    }
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
+            .clickable { pick.launch(arrayOf("font/ttf", "font/otf", "font/sfnt", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")) }
+            .padding(horizontal = 20.dp, vertical = 10.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_custom_font_title), color = AppText, fontSize = 16.sp)
+            Text(if (pref.active) stringResource(R.string.settings_custom_font_using, pref.name) else stringResource(R.string.settings_custom_font_detail),
+                color = AppMuted, fontSize = 12.sp)
+        }
+        if (pref.active) Text(stringResource(R.string.settings_custom_font_remove), color = com.music.spotui.ui.theme.AppAccent, fontSize = 14.sp,
+            modifier = Modifier.clickable { pref.clear(ctx) }.padding(start = 12.dp, top = 8.dp, bottom = 8.dp))
+    }
+}
 
 @Composable
 internal fun OptionRow(label: String, detail: String, checked: Boolean,

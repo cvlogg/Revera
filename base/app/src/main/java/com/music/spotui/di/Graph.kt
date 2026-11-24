@@ -49,6 +49,8 @@ object Graph {
         com.music.spotui.radio.RadioFeaturePref.init(application)
         // Jellyfin: its own setting and saved sign-in (see com.music.spotui.jellyfin).
         com.music.spotui.jellyfin.JellyfinPref.init(application)
+        // The font files picked in Settings, if any (see CustomFontPref).
+        com.music.spotui.data.preferences.CustomFontPref.init(application)
         com.music.spotui.data.preferences.LocalFilesPref.init(application)
         // A watch linked before reaches this phone over the Wi-Fi too, while the app runs.
         com.music.spotui.wear.WatchLan.startIfLinked(application)

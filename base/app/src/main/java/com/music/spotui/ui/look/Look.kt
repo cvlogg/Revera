@@ -44,10 +44,12 @@ private val interText = FontFamily(weights.map { inter(it, 14f) })
 private val interDisplay = FontFamily(weights.map { inter(it, 32f) })
 
 /** Body text, captions, buttons (the phone's system font when chosen in the settings: AppFontPref). */
-val ImmersiveSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else interText
+val ImmersiveSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default
+    else com.music.spotui.data.preferences.CustomFontPref.family(com.music.spotui.di.Graph.app) ?: interText
 
 /** Titles, the player's title and the lyrics (20sp and up); the system font as [ImmersiveSans]. */
-val ImmersiveDisplay: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else interDisplay
+val ImmersiveDisplay: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default
+    else com.music.spotui.data.preferences.CustomFontPref.family(com.music.spotui.di.Graph.app) ?: interDisplay
 
 /**
  * The phone's "Remove animations" setting, read once at the root (see App) for both looks.
