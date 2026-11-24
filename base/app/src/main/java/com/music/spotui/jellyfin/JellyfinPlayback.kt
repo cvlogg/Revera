@@ -51,16 +51,50 @@ object JellyfinPlayback {
             val named = when { t.imageTag.isBlank() -> "none"; t.imageItemId == t.albumId -> "the album's"; else -> "its own" }
             app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: the server names $named picture (album ${t.albumId.take(8)}, song ${t.id.take(8)})")
             for ((i, url) in candidates.withIndex()) {
-                val result = runCatching { JellyfinApi.checkImage(url) }.getOrElse { "error ${it.javaClass.simpleName}" }
+                val (result, bytes) = runCatching { JellyfinApi.fetchImage(url) }.getOrElse { "error ${it.javaClass.simpleName}" to null }
                 val where = url.substringAfter("/Items/").substringBefore("?") + "?" + url.substringAfter("?", "")
                 app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: try ${i + 1}/${candidates.size} $where -> $result")
-                if (result == "ok") {
-                    if (i > 0) coverFixed[id] = url else coverFixed.remove(id)
+                if (result == "ok" && bytes != null) {
+                    // The server gives it: does the image loader the player uses show it too? (A bad
+                    // copy in its disk cache, kept from an earlier try, made one cover fail for good.)
+                    val glide = glideProblem(url)
+                    if (glide == null) {
+                        if (i > 0) coverFixed[id] = url else coverFixed.remove(id)
+                    } else {
+                        app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: the image loader fails on it ($glide), shown from a saved copy")
+                        coverFixed[id] = saveCover(url, bytes)
+                    }
+                    if (coverFixed.containsKey(id)) LocalPlayer.coverChanged()
                     return@launch
                 }
             }
             app.myspoti.host.android.AppLog.d("jellyfin cover of ${t.title}: no address gave a picture")
         }
+    }
+
+    /** Why the image loader cannot show [url] (its own causes), null when it can. */
+    private fun glideProblem(url: String): String? {
+        val app = com.music.spotui.di.Graph.app
+        val target = com.bumptech.glide.Glide.with(app).asBitmap().load(url).submit()
+        return try {
+            target.get(30, java.util.concurrent.TimeUnit.SECONDS)
+            null
+        } catch (e: Exception) {
+            val glide = generateSequence<Throwable>(e) { it.cause }.filterIsInstance<com.bumptech.glide.load.engine.GlideException>().firstOrNull()
+            glide?.rootCauses?.joinToString("; ") { "${it.javaClass.simpleName}: ${it.message?.take(120)}" }?.ifBlank { null }
+                ?: "${e.javaClass.simpleName}: ${e.message?.take(120)}"
+        } finally {
+            com.bumptech.glide.Glide.with(app).clear(target)
+        }
+    }
+
+    /** Keeps [bytes] (the cover the server gave for [url]) in the app's cache, as a file address. */
+    private fun saveCover(url: String, bytes: ByteArray): String {
+        val dir = java.io.File(com.music.spotui.di.Graph.app.cacheDir, "jellyfin_covers").apply { mkdirs() }
+        val name = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        val f = java.io.File(dir, "$name.jpg")
+        f.writeBytes(bytes)
+        return Uri.fromFile(f).toString()
     }
 
     /** The Jellyfin song [t] is, if it is one. */

@@ -391,18 +391,22 @@ object JellyfinApi {
     }
 
     /** "ok", or why [imageUrl] does not give an image Android can show (HTTP status, not an image, no answer). */
-    fun checkImage(imageUrl: String): String = try {
+    fun checkImage(imageUrl: String): String = fetchImage(imageUrl).first
+
+    /** [checkImage]'s verdict, with the image's bytes when it is "ok". */
+    fun fetchImage(imageUrl: String): Pair<String, ByteArray?> = try {
         http.newCall(Request.Builder().url(imageUrl).get().build()).execute().use { r ->
-            if (!r.isSuccessful) "HTTP ${r.code}"
+            if (!r.isSuccessful) "HTTP ${r.code}" to null
             else {
                 val bytes = r.body?.bytes() ?: ByteArray(0)
                 val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                if (bounds.outWidth > 0) "ok" else "not an image (${r.header("Content-Type")}, ${bytes.size} bytes)"
+                if (bounds.outWidth > 0) "ok" to bytes
+                else "not an image (${r.header("Content-Type")}, ${bytes.size} bytes)" to null
             }
         }
     } catch (e: IOException) {
-        "no answer (${e.javaClass.simpleName})"
+        "no answer (${e.javaClass.simpleName})" to null
     }
 
     private fun untaggedImageUrl(itemId: String, size: Int): String =

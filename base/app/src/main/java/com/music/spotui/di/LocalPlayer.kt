@@ -2331,6 +2331,9 @@ object LocalPlayer {
 
     private var arranging = false
 
+    /** A song's cover was found elsewhere (see JellyfinPlayback): the player and notification show it now. */
+    fun coverChanged() { android.os.Handler(android.os.Looper.getMainLooper()).post { publish() } }
+
     private fun publish() {
         if (!active.value || arranging) return
         val t = current() ?: return
