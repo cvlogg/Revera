@@ -407,6 +407,10 @@ fun PlayerScreen(navController: NavController) {
         // Only the setting that hides the card gives the strip to the page.
         // The state is read here too, as the card sits below the page and is not composed to load it.
         val lyricsState = rememberLyricsState(viewModel<com.music.spotui.ui.viewmodel.LyricsViewModel>(), songTitle, songSinger, hold = outgoing != null)
+        // A line of the lyrics can show over the title only when they are time-synced: without,
+        // the official player gives its room to the cover (centred between the header and the title).
+        val hasLyricLine = (lyricsState as? com.music.spotui.ui.viewmodel.LyricsViewModel.State.Loaded)?.lyrics
+            ?.let { it.synced && it.lines.isNotEmpty() } == true
         // A window under 640 dp tall (a small phone, a phone on its side): the fixed gaps of the
         // controls shrink and the lyrics card peeks in less, so the cover keeps a real size (it was
         // 124 dp on a 320 x 568 phone) and the Connect row is not cut off in landscape.
@@ -630,7 +634,7 @@ fun PlayerScreen(navController: NavController) {
                 )
                 // A short window keeps the pill (32 dp) but not the gap under it.
                 // 36 dp: with the lyric line's own room, the official 49 dp from the cover to the lyric.
-                Box(modifier = Modifier.fillMaxWidth().height(if (shortWindow || !pillAboveTitle) 36.dp else 52.dp), contentAlignment = Alignment.TopCenter) {
+                Box(modifier = Modifier.fillMaxWidth().height(if (shortWindow) 36.dp else if (!pillAboveTitle && hasLyricLine) 36.dp else 52.dp), contentAlignment = Alignment.TopCenter) {
                     if (pillAboveTitle && pillIn > 0f) com.music.spotui.ui.components.VideoSwitchPill(
                         on = videoOn,
                         modifier = Modifier
@@ -643,7 +647,7 @@ fun PlayerScreen(navController: NavController) {
             // Immersive mode keeps none of this: the compact strip at the bottom of
             // the screen replaces the title block and every control.
             if (!immersive) {
-                if (com.music.spotui.data.preferences.PlayerLyricsCardPref.shown && !adPlaying) {
+                if (com.music.spotui.data.preferences.PlayerLyricsCardPref.shown && !adPlaying && hasLyricLine) {
                     CurrentLyricLine(
                         lyricsState = lyricsState,
                         playing = songPlayingState && !audioBuffering,
@@ -773,7 +777,9 @@ fun PlayerScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             topBar()
-            mediaArea(if (immersive) Modifier else Modifier.fillMaxWidth().weight(1f), Alignment.TopCenter)
+            // Centred in its room: with no lyric line the cover sits midway between the header and
+            // the title, as in the official player, instead of leaving the space under it.
+            mediaArea(if (immersive) Modifier else Modifier.fillMaxWidth().weight(1f), Alignment.Center)
             controls()
         }
         }
