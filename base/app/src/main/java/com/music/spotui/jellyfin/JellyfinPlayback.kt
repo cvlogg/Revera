@@ -50,9 +50,25 @@ object JellyfinPlayback {
         )
     }
 
-    fun play(list: List<JellyfinTrack>, index: Int, shuffle: Boolean = false) {
+    /**
+     * Where a play started, for the player's "Playing from": [uri] is "jellyfin:<type>:<id>" (type:
+     * album, artist, playlist, search, collection, genre, decade, list), [name] its second line.
+     */
+    data class From(val uri: String, val name: String) {
+        companion object {
+            fun album(a: JellyfinAlbum) = From("jellyfin:album:${a.id}", a.name)
+            fun artist(id: String, name: String) = From("jellyfin:artist:$id", name)
+            fun playlist(id: String, name: String) = From("jellyfin:playlist:$id", name)
+            fun search(query: String) = From("jellyfin:search:${android.net.Uri.encode(query)}", query)
+            fun liked(name: String) = From("jellyfin:collection:liked", name)
+            fun genre(id: String, name: String) = From("jellyfin:genre:$id", name)
+            fun list(kind: String, name: String) = From("jellyfin:list:$kind", name)
+        }
+    }
+
+    fun play(list: List<JellyfinTrack>, index: Int, from: From, shuffle: Boolean = false) {
         if (list.isEmpty()) return
-        LocalPlayer.play(list.map(::localTrack), index.coerceIn(0, list.lastIndex), shuffle = shuffle)
+        LocalPlayer.play(list.map(::localTrack), index.coerceIn(0, list.lastIndex), shuffle = shuffle, context = from.name, contextUri = from.uri)
         Reporter.start()
     }
 

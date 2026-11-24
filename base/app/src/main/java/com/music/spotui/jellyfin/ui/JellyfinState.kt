@@ -155,7 +155,7 @@ internal class JellyfinState(private val scope: CoroutineScope) {
             guarded(context) {
                 val list = JellyfinApi.randomTracks(JellyfinPref.libraryId)
                 // Already in a random order: played from the first, no shuffle on top of it.
-                com.music.spotui.jellyfin.JellyfinPlayback.play(list, 0)
+                com.music.spotui.jellyfin.JellyfinPlayback.play(list, 0, com.music.spotui.jellyfin.JellyfinPlayback.From.list("songs", context.getString(app.myspoti.engine.R.string.jellyfin_songs)))
             }
         }
     }

@@ -57,12 +57,16 @@ import kotlinx.coroutines.coroutineScope
 fun JellyfinListScreen(nav: NavController, kind: String) {
     val lib = JellyfinPref.libraryId
     when {
-        kind == "liked" -> TrackListPage(nav, stringResource(R.string.jellyfin_liked_songs), load(kind) { JellyfinApi.favoriteTracks() },
-            cover = { LikedArt(240.dp) })
+        kind == "liked" -> {
+            val name = stringResource(R.string.jellyfin_liked_songs)
+            TrackListPage(nav, name, load(kind) { JellyfinApi.favoriteTracks() }, com.music.spotui.jellyfin.JellyfinPlayback.From.liked(name),
+                cover = { LikedArt(240.dp) })
+        }
         kind == "songs" -> {
             val page = load(kind) { JellyfinApi.randomTracks(lib) }
             val cover = page.value?.firstOrNull()?.let { trackCover(it, 600) }.orEmpty()
-            TrackListPage(nav, stringResource(R.string.jellyfin_songs), page, cover = { Cover(cover, 240.dp) }, coverUrl = cover)
+            val name = stringResource(R.string.jellyfin_songs)
+            TrackListPage(nav, name, page, com.music.spotui.jellyfin.JellyfinPlayback.From.list(kind, name), cover = { Cover(cover, 240.dp) }, coverUrl = cover)
         }
         kind == "artists" -> ArtistListPage(nav)
         kind == "playlists" -> PlaylistListPage(nav)

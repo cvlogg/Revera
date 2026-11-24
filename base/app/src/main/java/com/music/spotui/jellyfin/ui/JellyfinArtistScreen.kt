@@ -101,6 +101,7 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var more by rememberSaveable { mutableStateOf(false) }
     var allTracks by remember { mutableStateOf<List<JellyfinTrack>?>(null) }
+    val from = JellyfinPlayback.From.artist(a.id, a.name)
     suspend fun everything(): List<JellyfinTrack> = allTracks ?: JellyfinApi.artistTracks(a.id).also { allTracks = it }
     val songs = a.songCount.takeIf { it > 0 }
     val stats = listOfNotNull(
@@ -143,9 +144,9 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
                             .padding(horizontal = 18.dp, vertical = 7.dp),
                     )
                     Spacer(Modifier.weight(1f))
-                    ShuffleButton { scope.launch { runCatching { everything().let { if (it.isNotEmpty()) JellyfinPlayback.play(it, it.indices.random(), shuffle = true) } } } }
+                    ShuffleButton { scope.launch { runCatching { everything().let { if (it.isNotEmpty()) JellyfinPlayback.play(it, it.indices.random(), from, shuffle = true) } } } }
                     Spacer(Modifier.width(22.dp))
-                    PlayCircle(60.dp) { scope.launch { runCatching { JellyfinPlayback.play(everything(), 0) } } }
+                    PlayCircle(60.dp) { scope.launch { runCatching { JellyfinPlayback.play(everything(), 0, from) } } }
                 }
             }
         }
@@ -168,7 +169,7 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
                     val t = shown[i]
                     TrackRow(t, nav, number = i + 1,
                         subtitle = if (t.playCount > 0) java.text.NumberFormat.getIntegerInstance().format(t.playCount) else t.album) {
-                        JellyfinPlayback.play(p.top, p.top.indexOf(t))
+                        JellyfinPlayback.play(p.top, p.top.indexOf(t), from)
                     }
                 }
                 if (p.top.size > 5) item(key = "more") {

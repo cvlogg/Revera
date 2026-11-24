@@ -155,7 +155,7 @@ fun JellyfinSearchScreen(nav: NavController) {
                             items(r.tracks.size, key = { "t" + r.tracks[it].id }) { i ->
                                 val t = r.tracks[i]
                                 TrackRow(t, nav, subtitle = listOf(stringResource(R.string.jellyfin_song), t.artist).filter { it.isNotBlank() }.joinToString(" • ")) {
-                                    focusManager.clearFocus(); JellyfinPlayback.play(r.tracks, i)
+                                    focusManager.clearFocus(); JellyfinPlayback.play(r.tracks, i, JellyfinPlayback.From.search(debounced))
                                 }
                             }
                         }

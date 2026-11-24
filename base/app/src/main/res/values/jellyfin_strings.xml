@@ -85,4 +85,7 @@
     <string name="jellyfin_your_artists">Your artists</string>
     <string name="jellyfin_your_library">Your Library</string>
     <string name="jellyfin_your_playlists">Your playlists</string>
+    <string name="jellyfin_search_context">\"%1$s\" in Search</string>
+    <string name="jellyfin_playing_from_genre">Playing from Genre</string>
+    <string name="jellyfin_playing_from">Playing from</string>
 </resources>

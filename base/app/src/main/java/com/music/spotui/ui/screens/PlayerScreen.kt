@@ -939,6 +939,19 @@ private fun playerContextName(playerViewModel: PlayerViewModel): String =
 @Composable
 private fun playingFromLabels(np: SongPlayer.NowPlaying, fallbackName: String): Pair<String, String> {
     if (np.provider == "queue") return stringResource(R.string.context_type_description_play_queue) to ""
+    // A Jellyfin play: where it started (see JellyfinPlayback.From).
+    if (np.contextUri.startsWith("jellyfin:")) {
+        val name = np.contextName.ifBlank { fallbackName }
+        return when (np.contextUri.split(":").getOrNull(1)) {
+            "album" -> stringResource(R.string.context_type_description_album) to name
+            "artist" -> stringResource(R.string.context_type_description_artist) to name
+            "playlist" -> stringResource(R.string.context_type_description_playlist) to name
+            "search" -> stringResource(R.string.context_type_description_search) to stringResource(R.string.jellyfin_search_context, name)
+            "collection" -> stringResource(R.string.context_type_description_collection_your_library) to name
+            "genre" -> stringResource(R.string.jellyfin_playing_from_genre) to name
+            else -> stringResource(R.string.jellyfin_playing_from) to name
+        }
+    }
     val type = np.contextUri.split(":").getOrNull(1).orEmpty()
     val name = contextDisplayName(np, fallbackName)
     return when {
@@ -968,6 +981,20 @@ private fun contextRoute(np: SongPlayer.NowPlaying): String? {
     val id = parts.getOrNull(2).orEmpty()
     // B26: opening that page again must carry the name the header shows.
     val name = contextDisplayName(np, "")
+    // A Jellyfin play: back to the page it started from (a search has no page; Search is the tab).
+    if (np.contextUri.startsWith("jellyfin:")) {
+        val jf = com.music.spotui.jellyfin.ui.JellyfinRoutes
+        return when (parts.getOrNull(1)) {
+            "album" -> id.takeIf { it.isNotBlank() }?.let { "${jf.ALBUM}/$it" }
+            "artist" -> id.takeIf { it.isNotBlank() }?.let { "${jf.ARTIST}/$it" }
+            "playlist" -> id.takeIf { it.isNotBlank() }?.let { "${jf.PLAYLIST}/$it?name=${android.net.Uri.encode(name)}" }
+            "genre" -> id.takeIf { it.isNotBlank() }?.let { "${jf.GENRE}/$it?name=${android.net.Uri.encode(name)}" }
+            "collection" -> "${jf.LIST}/liked"
+            "list" -> id.takeIf { it.isNotBlank() }?.let { "${jf.LIST}/$it" }
+            "search" -> Routes.Search.route
+            else -> null
+        }
+    }
     return when {
         isLikedContext(np.contextUri) -> Routes.Liked.route
         parts.getOrNull(1) == "station" -> null

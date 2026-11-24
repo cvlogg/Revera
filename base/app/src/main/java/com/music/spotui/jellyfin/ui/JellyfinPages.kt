@@ -147,12 +147,12 @@ fun JellyfinAlbumScreen(nav: NavController, id: String) {
                                     android.widget.Toast.makeText(app, app.getString(R.string.jellyfin_added_to_queue, a.name), android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            onPlay = { JellyfinPlayback.play(p.tracks, 0) },
-                            onShuffle = { if (p.tracks.isNotEmpty()) JellyfinPlayback.play(p.tracks, p.tracks.indices.random(), shuffle = true) },
+                            onPlay = { JellyfinPlayback.play(p.tracks, 0, JellyfinPlayback.From.album(a)) },
+                            onShuffle = { if (p.tracks.isNotEmpty()) JellyfinPlayback.play(p.tracks, p.tracks.indices.random(), JellyfinPlayback.From.album(a), shuffle = true) },
                         )
                     }
                     items(p.tracks.size, key = { p.tracks[it].id }) { i ->
-                        TrackRow(p.tracks[i], nav, showCover = false) { JellyfinPlayback.play(p.tracks, i) }
+                        TrackRow(p.tracks[i], nav, showCover = false) { JellyfinPlayback.play(p.tracks, i, JellyfinPlayback.From.album(a)) }
                     }
                     if (p.tracks.isNotEmpty()) item(key = "foot") {
                         val minutes = p.tracks.sumOf { it.durationMs } / 60_000
@@ -173,12 +173,12 @@ fun JellyfinPlaylistScreen(nav: NavController, id: String, name: String) {
     val page = load(id) { JellyfinApi.playlistTracks(id) }
     // The playlist's own picture needs its tag, which the link does not carry: its first song's cover.
     val cover = page.value?.firstOrNull()?.let { trackCover(it, 600) }.orEmpty()
-    TrackListPage(nav, name, page, cover = { Cover(cover, 240.dp) }, coverUrl = cover)
+    TrackListPage(nav, name, page, JellyfinPlayback.From.playlist(id, name), cover = { Cover(cover, 240.dp) }, coverUrl = cover)
 }
 
 /** A page of songs under a header: Liked Songs, a playlist, the most played. */
 @Composable
-internal fun TrackListPage(nav: NavController, title: String, page: Loaded<List<JellyfinTrack>>, cover: @Composable () -> Unit, coverUrl: String = "") {
+internal fun TrackListPage(nav: NavController, title: String, page: Loaded<List<JellyfinTrack>>, from: JellyfinPlayback.From, cover: @Composable () -> Unit, coverUrl: String = "") {
     Box(Modifier.fillMaxSize().background(AppBackground)) {
         val tracks = page.value
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace())) {
@@ -192,8 +192,8 @@ internal fun TrackListPage(nav: NavController, title: String, page: Loaded<List<
                         }
                     },
                     actions = {},
-                    onPlay = { tracks?.let { JellyfinPlayback.play(it, 0) } },
-                    onShuffle = { tracks?.takeIf { it.isNotEmpty() }?.let { JellyfinPlayback.play(it, it.indices.random(), shuffle = true) } },
+                    onPlay = { tracks?.let { JellyfinPlayback.play(it, 0, from) } },
+                    onShuffle = { tracks?.takeIf { it.isNotEmpty() }?.let { JellyfinPlayback.play(it, it.indices.random(), from, shuffle = true) } },
                 )
             }
             when {
@@ -201,7 +201,7 @@ internal fun TrackListPage(nav: NavController, title: String, page: Loaded<List<
                 tracks == null -> item { Loading() }
                 tracks.isEmpty() -> item { Problem(stringResource(R.string.jellyfin_nothing_here)) }
                 else -> items(tracks.size, key = { tracks[it].id + "#" + it }) { i ->
-                    TrackRow(tracks[i], nav) { JellyfinPlayback.play(tracks, i) }
+                    TrackRow(tracks[i], nav) { JellyfinPlayback.play(tracks, i, from) }
                 }
             }
         }
@@ -216,7 +216,7 @@ fun JellyfinGenreScreen(nav: NavController, id: String, name: String) {
     val page = load(id) { JellyfinApi.albumsBy("SortName", 200, genreId = id) }
     val shuffle: () -> Unit = {
         scope.launch { runCatching { JellyfinApi.randomTracks(com.music.spotui.jellyfin.JellyfinPref.libraryId, genreId = id) }
-            .getOrNull()?.takeIf { it.isNotEmpty() }?.let { JellyfinPlayback.play(it, 0) } }
+            .getOrNull()?.takeIf { it.isNotEmpty() }?.let { JellyfinPlayback.play(it, 0, JellyfinPlayback.From.genre(id, name)) } }
     }
     AlbumGridPage(nav, name, tileColor(name), page, onPlay = shuffle)
 }
