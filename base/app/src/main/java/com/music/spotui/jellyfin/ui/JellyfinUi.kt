@@ -123,7 +123,7 @@ internal fun tileColor(name: String) = tileColor(name.hashCode())
 internal val CardGrey = Color(0xFF2A2A2A)
 
 internal fun albumCover(a: JellyfinAlbum, size: Int = 300) = JellyfinApi.imageUrl(a.id, a.imageTag, size)
-internal fun trackCover(t: JellyfinTrack, size: Int = 160) = JellyfinApi.imageUrl(t.imageItemId, t.imageTag, size)
+internal fun trackCover(t: JellyfinTrack, size: Int = 160) = JellyfinApi.trackImageUrl(t, size)
 /** The artist's picture: the one chosen on this phone (Change artist picture), else the server's. */
 internal fun artistImage(a: JellyfinArtist, size: Int = 300) =
     com.music.spotui.jellyfin.ArtistPictures.of(a.id) ?: JellyfinApi.imageUrl(a.id, a.imageTag, size)

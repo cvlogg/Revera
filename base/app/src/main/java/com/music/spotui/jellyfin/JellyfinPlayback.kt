@@ -43,7 +43,7 @@ object JellyfinPlayback {
             id = id,
             uri = Uri.parse(JellyfinApi.streamUrl(t.id)),
             title = t.title, artist = t.artist, album = t.album, durationMs = t.durationMs,
-            artUri = JellyfinApi.imageUrl(t.imageItemId, t.imageTag, 800).takeIf { it.isNotBlank() }?.let(Uri::parse)
+            artUri = JellyfinApi.trackImageUrl(t, 800).takeIf { it.isNotBlank() }?.let(Uri::parse)
                 ?: Uri.parse("android.resource://${com.music.spotui.di.Graph.app.packageName}/drawable/local_files_cover"),
             folder = "jellyfin/" + t.albumId,
             trackNo = t.trackNo,

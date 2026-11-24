@@ -362,6 +362,21 @@ object JellyfinApi {
         mapOf("static" to "true", "deviceId" to JellyfinPref.deviceId, "ApiKey" to JellyfinPref.token)).toString()
 
     /**
+     * A song's cover: the album's or its own as the server named it; when it named none, the
+     * album's asked all the same (the server often has the album's picture without linking it
+     * from each song), then the song's own.
+     */
+    fun trackImageUrl(t: JellyfinTrack, size: Int): String = when {
+        t.imageTag.isNotBlank() -> imageUrl(t.imageItemId, t.imageTag, size)
+        t.albumId.isNotBlank() -> untaggedImageUrl(t.albumId, size)
+        else -> untaggedImageUrl(t.id, size)
+    }
+
+    private fun untaggedImageUrl(itemId: String, size: Int): String =
+        url(JellyfinPref.server, "/Items/$itemId/Images/Primary",
+            mapOf("fillHeight" to size.toString(), "fillWidth" to size.toString(), "quality" to "90", "format" to "Jpg")).toString()
+
+    /**
      * An item's image ("Primary" or "Backdrop"), [size] px at most; "" when it has none. Always as
      * a JPEG: asked bigger than the stored picture, the server can send the stored file as it is,
      * and a cover kept as TIFF, HEIC or the like then showed in the lists (small, converted) but
