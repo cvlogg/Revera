@@ -94,4 +94,14 @@
     <string name="settings_custom_font_remove">Remove</string>
     <string name="settings_custom_font_done">Font applied</string>
     <string name="settings_custom_font_failed">Those files are not fonts Android can read</string>
+    <string name="jellyfin_change_artist_picture">Change artist picture</string>
+    <string name="jellyfin_picture_random">Generate from tracks (Random)</string>
+    <string name="jellyfin_picture_file">From file picker</string>
+    <string name="jellyfin_picture_photo">From photo picker</string>
+    <string name="jellyfin_picture_url">From URL</string>
+    <string name="jellyfin_picture_remove">Remove current</string>
+    <string name="jellyfin_picture_changed">Artist picture changed</string>
+    <string name="jellyfin_picture_failed">That picture could not be used</string>
+    <string name="jellyfin_cancel">Cancel</string>
+    <string name="jellyfin_ok">OK</string>
 </resources>

@@ -124,7 +124,9 @@ internal val CardGrey = Color(0xFF2A2A2A)
 
 internal fun albumCover(a: JellyfinAlbum, size: Int = 300) = JellyfinApi.imageUrl(a.id, a.imageTag, size)
 internal fun trackCover(t: JellyfinTrack, size: Int = 160) = JellyfinApi.imageUrl(t.imageItemId, t.imageTag, size)
-internal fun artistImage(a: JellyfinArtist, size: Int = 300) = JellyfinApi.imageUrl(a.id, a.imageTag, size)
+/** The artist's picture: the one chosen on this phone (Change artist picture), else the server's. */
+internal fun artistImage(a: JellyfinArtist, size: Int = 300) =
+    com.music.spotui.jellyfin.ArtistPictures.of(a.id) ?: JellyfinApi.imageUrl(a.id, a.imageTag, size)
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -136,12 +138,23 @@ internal fun Cover(url: String, size: Dp, shape: Shape = RoundedCornerShape(4.dp
     )
 }
 
+@Composable
+internal fun FillImage(url: String, modifier: Modifier) = FillImage(listOf(url), modifier)
+
+/** The first of [urls] that loads (a picture that fails gives way to the next), else the app's cover. */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-internal fun FillImage(url: String, modifier: Modifier) {
+internal fun FillImage(urls: List<String>, modifier: Modifier) {
+    val context = LocalContext.current
+    val tries = urls.filter { it.isNotBlank() }
     GlideImage(
-        model = url.ifBlank { R.drawable.jellyfin_cover }, contentDescription = null, contentScale = ContentScale.Crop,
+        model = tries.firstOrNull() ?: R.drawable.jellyfin_cover, contentDescription = null, contentScale = ContentScale.Crop,
         loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.jellyfin_cover), modifier = modifier,
+        requestBuilderTransform = { first ->
+            tries.drop(1).foldRight<String, com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable>?>(null) { u, next ->
+                com.bumptech.glide.Glide.with(context).load(u).let { b -> if (next != null) b.error(next) else b }
+            }?.let { first.error(it) } ?: first
+        },
     )
 }
 

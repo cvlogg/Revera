@@ -93,8 +93,17 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
     val a = p.artist
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val image = JellyfinApi.imageUrl(a.id, a.backdropTag, 900, "Backdrop").ifBlank { artistImage(a, 900) }
-        .ifBlank { p.albums.firstOrNull()?.let { albumCover(it, 900) }.orEmpty() }
+    // The picture chosen on this phone, else the server's backdrop, its picture, then the latest cover:
+    // each one that fails to load gives way to the next.
+    val images = listOfNotNull(
+        com.music.spotui.jellyfin.ArtistPictures.of(a.id),
+        JellyfinApi.imageUrl(a.id, a.backdropTag, 900, "Backdrop"),
+        JellyfinApi.imageUrl(a.id, a.imageTag, 900),
+        p.albums.firstOrNull { it.imageTag.isNotBlank() }?.let { albumCover(it, 900) },
+    ).filter { it.isNotBlank() }
+    val image = images.firstOrNull().orEmpty()
+    var changing by remember { mutableStateOf(false) }
+    if (changing) ChangeArtistPicture(a.id) { changing = false }
     var tint by remember(image) { mutableStateOf(com.music.spotui.di.Palette.cachedFirst(image) ?: Color(0xFF3A2A2A)) }
     LaunchedEffect(image) { if (image.isNotBlank()) com.music.spotui.di.Palette().extractFirstColorFromImageUrl(context, image) { tint = it } }
     var following by remember(a.id) { mutableStateOf(a.favorite) }
@@ -112,13 +121,13 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace())) {
         item(key = "hero") {
             Box(Modifier.fillMaxWidth().height(340.dp)) {
-                FillImage(image, Modifier.fillMaxSize())
+                FillImage(images, Modifier.fillMaxSize())
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.45f to Color.Transparent,
                     1f to Color.Black.copy(alpha = 0.55f))))
                 Text(a.name, color = Color.White, fontSize = if (a.name.length > 18) 36.sp else 48.sp, fontWeight = FontWeight.ExtraBold,
                     lineHeight = if (a.name.length > 18) 40.sp else 52.sp, letterSpacing = (-1).sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 18.dp))
-                ArtistMenu(Modifier.align(Alignment.TopEnd)) {
+                ArtistMenu(Modifier.align(Alignment.TopEnd), onPicture = { changing = true }) {
                     scope.launch { runCatching { everything().forEach { JellyfinPlayback.enqueue(it, next = false) } } }
                 }
             }
@@ -191,7 +200,7 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
         } else item(key = "about") {
             Column(Modifier.padding(16.dp)) {
                 Box(Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(8.dp))) {
-                    FillImage(artistImage(a, 800).ifBlank { image }, Modifier.fillMaxSize())
+                    FillImage(listOf(artistImage(a, 800)) + images, Modifier.fillMaxSize())
                 }
                 Text(a.overview.ifBlank { stringResource(R.string.jellyfin_no_bio) }, color = AppText, fontSize = 15.sp, lineHeight = 22.sp,
                     modifier = Modifier.padding(top = 16.dp))
@@ -202,7 +211,7 @@ private fun ArtistContent(p: ArtistPage, nav: NavController) {
 
 /** The ⋮ over the picture's top right: add all their songs to the queue. */
 @Composable
-private fun ArtistMenu(modifier: Modifier, onQueue: () -> Unit) {
+private fun ArtistMenu(modifier: Modifier, onPicture: () -> Unit, onQueue: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box(modifier.statusBarsPadding().padding(12.dp)) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.35f)).pressable { open = true }, contentAlignment = Alignment.Center) {
@@ -210,6 +219,7 @@ private fun ArtistMenu(modifier: Modifier, onQueue: () -> Unit) {
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.jellyfin_add_all_to_queue)) }, onClick = { open = false; onQueue() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.jellyfin_change_artist_picture)) }, onClick = { open = false; onPicture() })
         }
     }
 }
