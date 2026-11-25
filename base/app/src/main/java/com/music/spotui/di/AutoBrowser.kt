@@ -510,8 +510,44 @@ class ArtworkProvider : android.content.ContentProvider() {
         }
 
         fun uriFor(url: String?): Uri? {
-            if (url.isNullOrBlank() || !allowed(url)) return null
+            if (url.isNullOrBlank()) return null
+            jellyfinCoverName(url)?.let { name ->
+                return Uri.Builder().scheme("content").authority(AUTHORITY).appendPath("jc").appendQueryParameter("n", name).build()
+            }
+            if (!allowed(url)) return null
             return Uri.Builder().scheme("content").authority(AUTHORITY).appendPath("img").appendQueryParameter("u", url).build()
+        }
+
+        /** A Jellyfin cover (the server's or a copy saved by JellyfinPlayback): the car is to get it through here. */
+        fun isJellyfin(url: String?): Boolean = !url.isNullOrBlank() && (jellyfinImage(url) || jellyfinCoverName(url) != null)
+
+        /** The Jellyfin covers saved in the cache (JellyfinPlayback.saveCover): only that folder, only their names. */
+        private val coverName = Regex("^[0-9a-f]{40}\\.jpg$")
+        private fun jellyfinCoverDir(): java.io.File = java.io.File(com.music.spotui.di.Graph.app.cacheDir, "jellyfin_covers")
+
+        private fun jellyfinCoverName(url: String): String? {
+            val u = Uri.parse(url)
+            if (u.scheme != "file") return null
+            val f = java.io.File(u.path ?: return null)
+            if (f.parentFile?.canonicalPath != jellyfinCoverDir().canonicalPath) return null
+            return f.name.takeIf { coverName.matches(it) }
+        }
+
+        /**
+         * An image of the signed-in Jellyfin server: its own scheme, host and port, and only its
+         * item images (/Items/<id>/Images/Primary|Backdrop). The provider is exported (for the
+         * car), so it must never fetch anything else for another app.
+         */
+        private val jellyfinPath = Regex("^/Items/[0-9a-fA-F-]{32,36}/Images/(Primary|Backdrop)$")
+        private fun jellyfinImage(url: String): Boolean {
+            val server = com.music.spotui.jellyfin.JellyfinPref.server.takeIf { it.isNotBlank() } ?: return false
+            val s = Uri.parse(server)
+            val u = Uri.parse(url)
+            if (u.scheme != s.scheme || u.host != s.host || u.port != s.port || u.userInfo != null || u.fragment != null) return false
+            val base = s.path.orEmpty().trimEnd('/')
+            val path = u.path.orEmpty()
+            if (!path.startsWith("$base/")) return false
+            return jellyfinPath.matches(path.removePrefix(base))
         }
 
         /**
@@ -522,7 +558,7 @@ class ArtworkProvider : android.content.ContentProvider() {
          */
         private fun allowed(url: String): Boolean {
             val u = Uri.parse(url)
-            return u.scheme == "https" && u.host in allowedHosts
+            return (u.scheme == "https" && u.host in allowedHosts) || jellyfinImage(url)
         }
     }
 
@@ -531,6 +567,12 @@ class ArtworkProvider : android.content.ContentProvider() {
         uri.getQueryParameter("f")?.let { name ->
             val file = com.music.spotui.data.offline.OfflineStore.tracks.values.firstOrNull { it.cover == name }
                 ?.let(com.music.spotui.data.offline.OfflineStore::coverFile) ?: return null
+            return android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+        }
+        // A Jellyfin cover saved in the cache: only a name of that folder, never a path.
+        uri.getQueryParameter("n")?.let { name ->
+            if (!coverName.matches(name)) return null
+            val file = java.io.File(jellyfinCoverDir(), name).takeIf { it.isFile } ?: return null
             return android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
         }
         val url = uri.getQueryParameter("u") ?: return null

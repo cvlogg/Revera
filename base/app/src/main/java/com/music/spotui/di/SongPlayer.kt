@@ -664,7 +664,9 @@ object SongPlayer {
             title = title,
             artist = artist,
             album = if (ad) "" else song?.album ?: st?.album?.value.orEmpty(),
-            coverUrl = cover,
+            // A Jellyfin cover goes to the session (Android Auto, the lock screen) as a content://
+            // address of the app's artwork provider: the car shows no web address, nor a file.
+            coverUrl = cover?.takeIf { ArtworkProvider.isJellyfin(it) }?.let { ArtworkProvider.uriFor(it)?.toString() } ?: cover,
             durationMs = if (ad) 0L else getDuration(),
             positionMs = if (ad) 0L else getCurrentPosition(),
             playing = isPlaying() && !ad,
