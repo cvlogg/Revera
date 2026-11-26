@@ -1,6 +1,7 @@
 package com.music.spotui.jellyfin.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Favorite
@@ -44,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -228,11 +231,20 @@ internal fun TrackRow(
     val current = currentId == JellyfinPlayback.songIdFor(t)
     var menu by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     if (menu) TrackMenu(t, nav, onAddToPlaylist = { adding = true }, onRemove = onRemove) { menu = false }
     if (adding) AddToPlaylistSheet(listOf(t)) { adding = false }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().pressable(0.98f, onClick = onClick).padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
+        modifier = Modifier.fillMaxWidth()
+            // A tap plays; holding the row opens its menu, as in the official app.
+            .combinedClickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null,
+                onLongClick = { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); menu = true },
+                onClick = onClick,
+            )
+            .padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
     ) {
         if (number != null) Text(number.toString(), color = AppText, fontSize = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.width(24.dp))
         if (number != null && showCover) Spacer(Modifier.width(14.dp))
@@ -248,7 +260,11 @@ internal fun TrackRow(
     }
 }
 
-/** A song's menu: like, queue, play next, its album, its artist. */
+/**
+ * A song's menu, drawn as the official one: the song (cover, title, artist) over a rule, then
+ * Share, Liked Songs, Add to playlist, (Remove from this playlist), Add to Queue, Play next,
+ * Go to Queue, Go to album, Go to artist; thin outlined glyphs, 58 dp rows.
+ */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun TrackMenu(
@@ -256,42 +272,136 @@ internal fun TrackMenu(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val app = com.music.spotui.di.Graph.app
-    var liked by remember { mutableStateOf<Boolean?>(null) }
-    com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = com.music.spotui.ui.theme.tone(0xFF282828)) {
-        Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Cover(trackCover(t), 48.dp)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text(t.title, color = AppText, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(t.artist, color = AppMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val liked = LikedSongs.isLiked(t)
+    com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = MenuBackground) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
+            Row(Modifier.padding(start = 17.dp, end = 17.dp, top = 4.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(trackCover(t), 50.dp, RoundedCornerShape(2.dp))
+                Column(Modifier.padding(start = 13.dp)) {
+                    Text(t.title, color = AppText, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.artist, color = AppMuted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 3.dp))
                 }
             }
-            @Composable
-            fun Item(icon: ImageVector, label: String, action: () -> Unit) = Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().pressable(0.98f) { action(); onDismiss() }.padding(horizontal = 20.dp, vertical = 14.dp),
-            ) {
-                Icon(icon, null, tint = AppMuted, modifier = Modifier.size(24.dp))
-                Text(label, color = AppText, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.12f)))
+            MenuRow(MenuIcons.share, stringResource(R.string.jellyfin_share)) {
+                onDismiss()
+                scope.launch {
+                    runCatching {
+                        com.music.spotui.ui.components.ShareCard.share(context, t.title, t.artist, trackCover(t, 640),
+                            context.getString(R.string.action_share_label))
+                    }
+                }
             }
-            Item(if (liked == true) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                stringResource(if (liked == true) R.string.jellyfin_unlike else R.string.jellyfin_like)) {
-                val on = liked != true
-                scope.launch { runCatching { JellyfinApi.setFavorite(t.id, on) } }
+            MenuRow(
+                icon = null,
+                art = {
+                    if (liked) Icon(Icons.Filled.CheckCircle, null, tint = AppAccent, modifier = Modifier.size(25.dp))
+                    else Box(Modifier.size(24.dp).clip(RoundedCornerShape(3.dp))) { LikedArt(24.dp) }
+                },
+                label = stringResource(if (liked) R.string.jellyfin_unlike else R.string.jellyfin_like),
+            ) {
+                onDismiss()
+                val on = !liked
+                LikedSongs.set(t, on)
+                scope.launch { runCatching { JellyfinApi.setFavorite(t.id, on) }.onFailure { LikedSongs.set(t, !on) } }
                 android.widget.Toast.makeText(app, app.getString(if (on) R.string.jellyfin_liked else R.string.jellyfin_unliked), android.widget.Toast.LENGTH_SHORT).show()
             }
-            if (onAddToPlaylist != null) Item(Icons.Filled.AddCircleOutline, stringResource(R.string.jellyfin_add_to_playlist)) { onAddToPlaylist() }
-            if (onRemove != null) Item(Icons.Filled.RemoveCircleOutline, stringResource(R.string.jellyfin_remove_from_playlist)) { onRemove() }
-            Item(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.jellyfin_add_to_queue)) {
+            if (onAddToPlaylist != null) MenuRow(MenuIcons.addCircle, stringResource(R.string.jellyfin_add_to_playlist)) { onDismiss(); onAddToPlaylist() }
+            if (onRemove != null) MenuRow(MenuIcons.removeCircle, stringResource(R.string.jellyfin_remove_from_playlist)) { onDismiss(); onRemove() }
+            MenuRow(MenuIcons.addQueue, stringResource(R.string.jellyfin_add_to_queue_menu)) {
+                onDismiss()
                 JellyfinPlayback.enqueue(t, next = false)
                 android.widget.Toast.makeText(app, app.getString(R.string.jellyfin_added_to_queue, t.title), android.widget.Toast.LENGTH_SHORT).show()
             }
-            Item(Icons.AutoMirrored.Filled.QueueMusic, stringResource(R.string.jellyfin_play_next)) { JellyfinPlayback.enqueue(t, next = true) }
-            if (t.albumId.isNotBlank()) Item(Icons.Filled.Album, stringResource(R.string.jellyfin_go_to_album)) { JellyfinRoutes.album(nav, t.albumId) }
-            if (t.artistId.isNotBlank()) Item(Icons.Filled.Person, stringResource(R.string.jellyfin_go_to_artist)) { JellyfinRoutes.artist(nav, t.artistId) }
+            MenuRow(MenuIcons.playNext, stringResource(R.string.jellyfin_play_next)) { onDismiss(); JellyfinPlayback.enqueue(t, next = true) }
+            MenuRow(MenuIcons.queue, stringResource(R.string.jellyfin_go_to_queue)) {
+                onDismiss(); nav.navigate(com.music.spotui.ui.navigation.Routes.Queue.route)
+            }
+            if (t.albumId.isNotBlank()) MenuRow(MenuIcons.album, stringResource(R.string.jellyfin_go_to_album)) { onDismiss(); JellyfinRoutes.album(nav, t.albumId) }
+            if (t.artistId.isNotBlank()) MenuRow(MenuIcons.artist, stringResource(R.string.jellyfin_go_to_artist)) { onDismiss(); JellyfinRoutes.artist(nav, t.artistId) }
         }
     }
+}
+
+/** The official menus' sheet colour. */
+internal val MenuBackground = Color(0xFF282828)
+
+/**
+ * One row of a menu, at the official metrics: 58 dp tall, a 24 dp glyph 18 dp from the edge, its
+ * label from 55 dp, 17 sp.
+ */
+@Composable
+internal fun MenuRow(icon: ImageVector?, label: String, art: (@Composable () -> Unit)? = null, tint: Color = AppText,
+    trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().height(58.dp).pressable(0.98f, onClick = onClick).padding(start = 18.dp, end = 18.dp),
+    ) {
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            if (art != null) art() else if (icon != null) Icon(icon, null, tint = Color(0xFFD9D9D9), modifier = Modifier.size(24.dp))
+        }
+        Text(label, color = tint, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 13.dp).weight(1f))
+        trailing?.invoke()
+    }
+}
+
+/** Thin outlined glyphs in the official menus' style (1.6 strokes on a 24 grid). */
+internal object MenuIcons {
+    private fun stroked(name: String, build: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit): ImageVector =
+        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
+            path(
+                stroke = androidx.compose.ui.graphics.SolidColor(Color.White),
+                strokeLineWidth = 1.6f,
+                strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round,
+                pathBuilder = build,
+            )
+        }.build()
+
+    private fun androidx.compose.ui.graphics.vector.PathBuilder.circle(cx: Float, cy: Float, r: Float) {
+        moveTo(cx - r, cy); arcTo(r, r, 0f, true, true, cx + r, cy); arcTo(r, r, 0f, true, true, cx - r, cy); close()
+    }
+
+    val share = stroked("share") {
+        circle(18f, 5.5f, 2.5f); circle(6f, 12f, 2.5f); circle(18f, 18.5f, 2.5f)
+        moveTo(8.2f, 10.8f); lineTo(15.8f, 6.7f); moveTo(8.2f, 13.2f); lineTo(15.8f, 17.3f)
+    }
+    val addCircle = stroked("addCircle") { circle(12f, 12f, 9.5f); moveTo(12f, 7.5f); lineTo(12f, 16.5f); moveTo(7.5f, 12f); lineTo(16.5f, 12f) }
+    val removeCircle = stroked("removeCircle") { circle(12f, 12f, 9.5f); moveTo(7.5f, 12f); lineTo(16.5f, 12f) }
+    val addQueue = stroked("addQueue") {
+        moveTo(3f, 4.5f); lineTo(8f, 4.5f); moveTo(5.5f, 2f); lineTo(5.5f, 7f)
+        moveTo(11f, 5f); lineTo(21f, 5f); arcTo(1.5f, 1.5f, 0f, false, true, 21f, 8f); lineTo(11f, 8f)
+        moveTo(3f, 13f); lineTo(21f, 13f); moveTo(3f, 19f); lineTo(21f, 19f)
+    }
+    val playNext = stroked("playNext") {
+        moveTo(3f, 6f); lineTo(14f, 6f); moveTo(3f, 12f); lineTo(14f, 12f); moveTo(3f, 18f); lineTo(10f, 18f)
+        moveTo(17f, 14f); lineTo(21f, 17f); lineTo(17f, 20f); close()
+    }
+    val queue = stroked("queue") {
+        moveTo(5f, 4f); lineTo(19f, 4f); arcTo(2f, 2f, 0f, false, true, 19f, 8f); lineTo(5f, 8f); arcTo(2f, 2f, 0f, false, true, 5f, 4f)
+        moveTo(3f, 13f); lineTo(21f, 13f); moveTo(3f, 19f); lineTo(21f, 19f)
+    }
+    val album = stroked("album") { circle(12f, 12f, 9.5f); circle(12f, 12f, 2.2f) }
+    val artist = stroked("artist") {
+        circle(10f, 7.5f, 4f)
+        moveTo(2.5f, 21f); lineTo(2.5f, 19.5f); arcTo(4.5f, 4.5f, 0f, false, true, 7f, 15f); lineTo(12.5f, 15f)
+        moveTo(18f, 21.5f); lineTo(18f, 13.5f); lineTo(21.5f, 14.5f)
+        circle(16.3f, 21.2f, 1.7f)
+    }
+}
+
+/**
+ * Liked Songs as this session knows them: each song's state from the server (JellyfinTrack.favorite),
+ * then what the menus changed, so a song's menu and its pages agree at once.
+ */
+internal object LikedSongs {
+    private val changed = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+    fun isLiked(t: JellyfinTrack): Boolean = changed[t.id] ?: t.favorite
+    fun set(t: JellyfinTrack, on: Boolean) { changed[t.id] = on }
 }
 
 /** An album (or playlist) in a row of cards: cover, name, one line under it. */

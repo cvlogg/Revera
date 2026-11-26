@@ -534,14 +534,10 @@ private fun PlaylistMenu(
 
 @Composable
 internal fun SheetItem(icon: ImageVector, label: String, selected: Boolean = false, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().pressable(0.98f, onClick = onClick).padding(horizontal = 20.dp, vertical = 14.dp),
-    ) {
-        Icon(icon, null, tint = if (selected) AppAccent else AppMuted, modifier = Modifier.size(24.dp))
-        Text(label, color = if (selected) AppAccent else AppText, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp).weight(1f))
-        if (selected) Icon(Icons.Filled.Check, null, tint = AppAccent, modifier = Modifier.size(22.dp))
-    }
+    // The song menu's rows (MenuRow): one look for every menu.
+    MenuRow(icon, label, tint = if (selected) AppAccent else AppText,
+        trailing = if (selected) ({ Icon(Icons.Filled.Check, null, tint = AppAccent, modifier = Modifier.size(22.dp)) }) else null,
+        onClick = onClick)
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)

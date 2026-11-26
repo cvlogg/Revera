@@ -57,6 +57,8 @@ data class JellyfinTrack(
     val playCount: Int = 0,
     /** Its entry in a playlist (the same song twice is two entries), "" outside a playlist. */
     val entryId: String = "",
+    /** In this user's Liked Songs (a favourite on the server). */
+    val favorite: Boolean = false,
 )
 
 data class JellyfinArtist(
@@ -529,6 +531,7 @@ object JellyfinApi {
             artistId = firstId("ArtistItems").ifBlank { firstId("AlbumArtists") },
             playCount = (userData()?.get("PlayCount") as? JsonPrimitive)?.intOrNull ?: 0,
             entryId = str("PlaylistItemId"),
+            favorite = (userData()?.get("IsFavorite") as? JsonPrimitive)?.booleanOrNull == true,
         )
     }
 }

@@ -151,4 +151,7 @@
     <string name="jellyfin_playlist_deleted">Deleted %1$s</string>
     <string name="jellyfin_delete_refused">The server would not delete this playlist. Your Jellyfin user may not be allowed to delete.</string>
     <string name="jellyfin_playlist_failed">The server did not take the change. Check your connection and try again.</string>
+    <string name="jellyfin_share">Share</string>
+    <string name="jellyfin_add_to_queue_menu">Add to Queue</string>
+    <string name="jellyfin_go_to_queue">Go to Queue</string>
 </resources>
