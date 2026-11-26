@@ -277,8 +277,8 @@ internal fun TrackMenu(
     val liked = LikedSongs.isLiked(t)
     com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = MenuBackground) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
-            Row(Modifier.padding(start = 17.dp, end = 17.dp, top = 4.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Cover(trackCover(t), 50.dp, RoundedCornerShape(2.dp))
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(trackCover(t), 48.dp, RoundedCornerShape(2.dp))
                 Column(Modifier.padding(start = 13.dp)) {
                     Text(t.title, color = AppText, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(t.artist, color = AppMuted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -330,21 +330,21 @@ internal fun TrackMenu(
 internal val MenuBackground = Color(0xFF282828)
 
 /**
- * One row of a menu, at the official metrics: 58 dp tall, a 24 dp glyph 18 dp from the edge, its
- * label from 55 dp, 17 sp.
+ * One row of a menu, at the official metrics (measured on a Pixel 10a, 2.1 px a dp in its
+ * screenshots): 56 dp tall, a 24 dp glyph 16 dp from the edge, its label from 52 dp, 16 sp.
  */
 @Composable
 internal fun MenuRow(icon: ImageVector?, label: String, art: (@Composable () -> Unit)? = null, tint: Color = AppText,
     trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().height(58.dp).pressable(0.98f, onClick = onClick).padding(start = 18.dp, end = 18.dp),
+        modifier = Modifier.fillMaxWidth().height(56.dp).pressable(0.98f, onClick = onClick).padding(start = 16.dp, end = 16.dp),
     ) {
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
             if (art != null) art() else if (icon != null) Icon(icon, null, tint = Color(0xFFD9D9D9), modifier = Modifier.size(24.dp))
         }
-        Text(label, color = tint, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 13.dp).weight(1f))
+        Text(label, color = tint, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp).weight(1f))
         trailing?.invoke()
     }
 }
