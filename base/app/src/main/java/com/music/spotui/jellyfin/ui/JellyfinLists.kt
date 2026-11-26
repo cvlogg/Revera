@@ -24,8 +24,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -113,9 +115,7 @@ private fun ArtistListPage(nav: NavController) {
 private fun PlaylistListPage(nav: NavController) {
     val page = load("playlists") { JellyfinApi.playlists() }
     SimpleListPage(nav, stringResource(R.string.jellyfin_playlists), tileColor(3), page.value, page.failed) { p: JellyfinPlaylist ->
-        ListRow(JellyfinApi.imageUrl(p.id, p.imageTag, 160), p.name, stringResource(R.string.jellyfin_songs_count, p.songCount)) {
-            JellyfinRoutes.playlist(nav, p.id, p.name)
-        }
+        PlaylistRow(p, stringResource(R.string.jellyfin_songs_count, p.songCount)) { JellyfinRoutes.playlist(nav, p.id, p.name) }
     }
 }
 
@@ -204,7 +204,9 @@ fun JellyfinLibraryScreen(nav: NavController) {
     val list = rememberLazyListState()
     LaunchedEffect(Unit) { TabReselect.library.collect { list.animateScrollToItem(0) } }
     val lib = JellyfinPref.libraryId
-    val shelf = load(chip, refresh, lib) {
+    var creating by remember { mutableStateOf(false) }
+    if (creating) NewPlaylistDialog(onDismiss = { creating = false }) { id, name -> creating = false; JellyfinRoutes.playlist(nav, id, name) }
+    val shelf = load(chip, refresh, lib, PlaylistChanges.version) {
         coroutineScope {
             when (chip) {
                 LibChip.PLAYLISTS -> Shelf(JellyfinApi.playlists(), emptyList(), emptyList(), false)
@@ -230,7 +232,12 @@ fun JellyfinLibraryScreen(nav: NavController) {
                     verticalAlignment = Alignment.CenterVertically) {
                     Avatar(34.dp) { JellyfinRoutes.list(nav, "account") }
                     Text(stringResource(R.string.jellyfin_your_library), color = AppText, fontSize = 24.sp, fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.4).sp, modifier = Modifier.padding(start = 12.dp))
+                        letterSpacing = (-0.4).sp, modifier = Modifier.padding(start = 12.dp).weight(1f))
+                    // Create, as the official app's +: a new playlist, opened once named.
+                    Box(Modifier.size(44.dp).pressable(0.9f) { creating = true }, contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, stringResource(R.string.jellyfin_create_playlist),
+                            tint = AppText, modifier = Modifier.size(30.dp))
+                    }
                 }
             }
             item(key = "chips") {
@@ -261,8 +268,7 @@ fun JellyfinLibraryScreen(nav: NavController) {
                 else -> {
                     items(s.playlists.size, key = { "p" + s.playlists[it].id }) { i ->
                         val p = s.playlists[i]
-                        ListRow(JellyfinApi.imageUrl(p.id, p.imageTag, 160), p.name,
-                            listOf(stringResource(R.string.jellyfin_playlist), stringResource(R.string.jellyfin_songs_count, p.songCount)).joinToString(" • ")) {
+                        PlaylistRow(p, listOf(stringResource(R.string.jellyfin_playlist), JellyfinPref.userName).filter { it.isNotBlank() }.joinToString(" • ")) {
                             JellyfinRoutes.playlist(nav, p.id, p.name)
                         }
                     }

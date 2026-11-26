@@ -176,7 +176,7 @@ fun JellyfinHomeScreen(nav: NavController) {
                                 contentPadding = PaddingValues(horizontal = 16.dp)) {
                                 items(f.playlists.size, key = { f.playlists[it].id }) { i ->
                                     val p = f.playlists[i]
-                                    CoverCard(JellyfinApi.imageUrl(p.id, p.imageTag, 300), p.name,
+                                    CoverCard(playlistCoverUrl(p), p.name,
                                         stringResource(R.string.jellyfin_songs_count, p.songCount)) { JellyfinRoutes.playlist(nav, p.id, p.name) }
                                 }
                             }

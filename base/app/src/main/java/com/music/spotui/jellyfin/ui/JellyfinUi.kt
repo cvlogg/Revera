@@ -21,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
@@ -77,12 +79,16 @@ object JellyfinRoutes {
     const val GENRE = "jf-genre"
     const val PLAYLIST = "jf-playlist"
     const val LIST = "jf-list"
+    const val ADD_SONGS = "jf-addsongs"
+    const val EDIT_PLAYLIST = "jf-editplaylist"
 
     fun artist(nav: NavController, id: String) { if (id.isNotBlank()) nav.navigate("$ARTIST/$id") }
     fun album(nav: NavController, id: String) { if (id.isNotBlank()) nav.navigate("$ALBUM/$id") }
     fun genre(nav: NavController, id: String, name: String) { nav.navigate("$GENRE/$id?name=${android.net.Uri.encode(name)}") }
     fun playlist(nav: NavController, id: String, name: String) { nav.navigate("$PLAYLIST/$id?name=${android.net.Uri.encode(name)}") }
     fun list(nav: NavController, kind: String) { nav.navigate("$LIST/$kind") }
+    fun addSongs(nav: NavController, playlistId: String) { nav.navigate("$ADD_SONGS/$playlistId") }
+    fun editPlaylist(nav: NavController, playlistId: String) { nav.navigate("$EDIT_PLAYLIST/$playlistId") }
 }
 
 /** What a page asked the server: loading, its answer, or a failure (a refused token signs out). */
@@ -213,12 +219,17 @@ internal fun ShuffleButton(onClick: () -> Unit) {
 @Composable
 internal fun TrackRow(
     t: JellyfinTrack, nav: NavController, number: Int? = null, showCover: Boolean = true,
-    subtitle: String = t.artist, onClick: () -> Unit,
+    subtitle: String = t.artist,
+    /** In a playlist of the user: the menu's "Remove from this playlist". */
+    onRemove: (() -> Unit)? = null,
+    onClick: () -> Unit,
 ) {
     val currentId by com.music.spotui.di.Graph.currentSongState.songId
     val current = currentId == JellyfinPlayback.songIdFor(t)
     var menu by remember { mutableStateOf(false) }
-    if (menu) TrackMenu(t, nav) { menu = false }
+    var adding by remember { mutableStateOf(false) }
+    if (menu) TrackMenu(t, nav, onAddToPlaylist = { adding = true }, onRemove = onRemove) { menu = false }
+    if (adding) AddToPlaylistSheet(listOf(t)) { adding = false }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().pressable(0.98f, onClick = onClick).padding(start = 16.dp, end = 4.dp, top = 7.dp, bottom = 7.dp),
@@ -240,7 +251,10 @@ internal fun TrackRow(
 /** A song's menu: like, queue, play next, its album, its artist. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-internal fun TrackMenu(t: JellyfinTrack, nav: NavController, onDismiss: () -> Unit) {
+internal fun TrackMenu(
+    t: JellyfinTrack, nav: NavController, onAddToPlaylist: (() -> Unit)? = null, onRemove: (() -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val app = com.music.spotui.di.Graph.app
     var liked by remember { mutableStateOf<Boolean?>(null) }
@@ -267,6 +281,8 @@ internal fun TrackMenu(t: JellyfinTrack, nav: NavController, onDismiss: () -> Un
                 scope.launch { runCatching { JellyfinApi.setFavorite(t.id, on) } }
                 android.widget.Toast.makeText(app, app.getString(if (on) R.string.jellyfin_liked else R.string.jellyfin_unliked), android.widget.Toast.LENGTH_SHORT).show()
             }
+            if (onAddToPlaylist != null) Item(Icons.Filled.AddCircleOutline, stringResource(R.string.jellyfin_add_to_playlist)) { onAddToPlaylist() }
+            if (onRemove != null) Item(Icons.Filled.RemoveCircleOutline, stringResource(R.string.jellyfin_remove_from_playlist)) { onRemove() }
             Item(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.jellyfin_add_to_queue)) {
                 JellyfinPlayback.enqueue(t, next = false)
                 android.widget.Toast.makeText(app, app.getString(R.string.jellyfin_added_to_queue, t.title), android.widget.Toast.LENGTH_SHORT).show()

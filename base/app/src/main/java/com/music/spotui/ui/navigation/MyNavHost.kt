@@ -119,6 +119,12 @@ fun MyNavHost(
         page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.PLAYLIST}/{id}?name={name}", arguments = listOf(navArgument("name") { defaultValue = "" })) { e ->
             com.music.spotui.jellyfin.ui.JellyfinPlaylistScreen(navHostController, e.arguments?.getString("id").orEmpty(), e.arguments?.getString("name").orEmpty())
         }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.ADD_SONGS}/{id}") { e ->
+            com.music.spotui.jellyfin.ui.JellyfinAddSongsScreen(navHostController, e.arguments?.getString("id").orEmpty())
+        }
+        page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.EDIT_PLAYLIST}/{id}") { e ->
+            com.music.spotui.jellyfin.ui.JellyfinEditPlaylistScreen(navHostController, e.arguments?.getString("id").orEmpty())
+        }
         page("${com.music.spotui.jellyfin.ui.JellyfinRoutes.LIST}/{kind}") { e ->
             com.music.spotui.jellyfin.ui.JellyfinListScreen(navHostController, e.arguments?.getString("kind").orEmpty())
         }

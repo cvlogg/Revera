@@ -95,6 +95,12 @@ object ArtistPictures {
         return fromUrl(c, artistId, pick)
     }
 
+    /** One of [urls] at random (a playlist's covers). */
+    suspend fun fromRandom(c: Context, id: String, urls: List<String>): Boolean {
+        val pick = urls.filter { it.isNotBlank() }.distinct().randomOrNull() ?: return false
+        return fromUrl(c, id, pick)
+    }
+
     /** Back to the server's picture. */
     fun remove(c: Context, artistId: String) {
         dir(c).listFiles { x -> x.name.startsWith("$artistId-") }?.forEach { it.delete() }

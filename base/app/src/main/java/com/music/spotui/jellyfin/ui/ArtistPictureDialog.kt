@@ -60,6 +60,15 @@ private val TonalText = Color(0xFF2B3330)
 @Composable
 internal fun ChangeArtistPicture(artistId: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    ChangePicture(artistId, stringResource(R.string.jellyfin_change_artist_picture),
+        random = { ArtistPictures.fromRandomCover(context, artistId) }, onDismiss = onDismiss)
+}
+
+/** The same choices for any item kept by [ArtistPictures] under [itemId] (an artist, a playlist). */
+@Composable
+internal fun ChangePicture(itemId: String, title: String, random: suspend () -> Boolean, onDismiss: () -> Unit) {
+    val artistId = itemId
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var askingUrl by remember { mutableStateOf(false) }
@@ -89,11 +98,11 @@ internal fun ChangeArtistPicture(artistId: String, onDismiss: () -> Unit) {
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(DialogBg).padding(24.dp)) {
-            Text(stringResource(R.string.jellyfin_change_artist_picture), color = Color.White, fontSize = 30.sp, lineHeight = 36.sp,
+            Text(title, color = Color.White, fontSize = 30.sp, lineHeight = 36.sp,
                 modifier = Modifier.padding(bottom = 22.dp))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Option(Icons.Outlined.AutoAwesome, stringResource(R.string.jellyfin_picture_random), busy) {
-                    run { ArtistPictures.fromRandomCover(context, artistId) }
+                    run { random() }
                 }
                 Option(Icons.Outlined.FilePresent, stringResource(R.string.jellyfin_picture_file), busy) { file.launch(arrayOf("image/*")) }
                 Option(Icons.Outlined.Image, stringResource(R.string.jellyfin_picture_photo), busy) {

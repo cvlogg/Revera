@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -19,6 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -121,6 +125,16 @@ fun JellyfinAlbumScreen(nav: NavController, id: String) {
                 val a = p.album
                 val cover = albumCover(a, 600)
                 var liked by remember(a.id) { mutableStateOf(a.favorite) }
+                var addingAll by remember { mutableStateOf(false) }
+                var albumMenu by remember { mutableStateOf(false) }
+                if (addingAll) AddToPlaylistSheet(p.tracks) { addingAll = false }
+                if (albumMenu) AlbumMenu(a.name, onDismiss = { albumMenu = false },
+                    onPlaylist = { addingAll = true },
+                    onQueue = {
+                        p.tracks.forEach { JellyfinPlayback.enqueue(it, next = false) }
+                        android.widget.Toast.makeText(app, app.getString(R.string.jellyfin_added_to_queue, a.name), android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onArtist = a.artistId.takeIf { it.isNotBlank() }?.let { aid -> { JellyfinRoutes.artist(nav, aid) } })
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace())) {
                     item(key = "head") {
                         CollectionHeader(
@@ -142,10 +156,8 @@ fun JellyfinAlbumScreen(nav: NavController, id: String) {
                                     val on = !liked; liked = on
                                     scope.launch { runCatching { JellyfinApi.setFavorite(a.id, on) }.onFailure { liked = !on } }
                                 }
-                                ActionIcon(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.jellyfin_add_to_queue)) {
-                                    p.tracks.forEach { JellyfinPlayback.enqueue(it, next = false) }
-                                    android.widget.Toast.makeText(app, app.getString(R.string.jellyfin_added_to_queue, a.name), android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                ActionIcon(Icons.Filled.AddCircleOutline, stringResource(R.string.jellyfin_add_to_playlist)) { addingAll = true }
+                                ActionIcon(Icons.Filled.MoreVert, stringResource(R.string.jellyfin_more)) { albumMenu = true }
                             },
                             onPlay = { JellyfinPlayback.play(p.tracks, 0, JellyfinPlayback.From.album(a)) },
                             onShuffle = { if (p.tracks.isNotEmpty()) JellyfinPlayback.play(p.tracks, p.tracks.indices.random(), JellyfinPlayback.From.album(a), shuffle = true) },
@@ -165,15 +177,6 @@ fun JellyfinAlbumScreen(nav: NavController, id: String) {
         }
         BackButton(nav)
     }
-}
-
-/** A playlist of the server: its songs, shuffle and play. */
-@Composable
-fun JellyfinPlaylistScreen(nav: NavController, id: String, name: String) {
-    val page = load(id) { JellyfinApi.playlistTracks(id) }
-    // The playlist's own picture needs its tag, which the link does not carry: its first song's cover.
-    val cover = page.value?.firstOrNull()?.let { trackCover(it, 600) }.orEmpty()
-    TrackListPage(nav, name, page, JellyfinPlayback.From.playlist(id, name), cover = { Cover(cover, 240.dp) }, coverUrl = cover)
 }
 
 /** A page of songs under a header: Liked Songs, a playlist, the most played. */
@@ -260,6 +263,21 @@ internal fun ColorHeader(title: String, color: Color, onPlay: (() -> Unit)? = nu
             Text(title, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 38.sp,
                 letterSpacing = (-0.6).sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             if (onPlay != null) PlayCircle(onClick = onPlay)
+        }
+    }
+}
+
+/** An album's ⋮: add it to a playlist or to the queue, its artist. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun AlbumMenu(name: String, onDismiss: () -> Unit, onPlaylist: () -> Unit, onQueue: () -> Unit, onArtist: (() -> Unit)?) {
+    com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = com.music.spotui.ui.theme.tone(0xFF282828)) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
+            Text(name, color = AppText, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            SheetItem(Icons.Filled.AddCircleOutline, stringResource(R.string.jellyfin_add_to_playlist)) { onDismiss(); onPlaylist() }
+            SheetItem(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.jellyfin_add_to_queue)) { onDismiss(); onQueue() }
+            if (onArtist != null) SheetItem(androidx.compose.material.icons.Icons.Filled.Person, stringResource(R.string.jellyfin_go_to_artist)) { onDismiss(); onArtist() }
         }
     }
 }

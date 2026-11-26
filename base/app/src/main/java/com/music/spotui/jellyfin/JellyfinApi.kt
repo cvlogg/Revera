@@ -55,6 +55,8 @@ data class JellyfinTrack(
     val artistId: String = "",
     /** How many times this user played it, as the server counts. */
     val playCount: Int = 0,
+    /** Its entry in a playlist (the same song twice is two entries), "" outside a playlist. */
+    val entryId: String = "",
 )
 
 data class JellyfinArtist(
@@ -322,6 +324,59 @@ object JellyfinApi {
         items(get("/Playlists/$id/Items", mapOf("userId" to JellyfinPref.userId))).filter { it.str("Type") == "Audio" }.map { it.toTrack() }
     }
 
+    /** Songs that go with [itemId] (a playlist, an album, a song), the server's "instant mix". */
+    suspend fun instantMix(itemId: String, limit: Int = 30): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        items(get("/Items/$itemId/InstantMix", mapOf("userId" to JellyfinPref.userId, "limit" to limit.toString()))).map { it.toTrack() }
+    }
+
+    /** One playlist, read again (its name, picture and size). */
+    suspend fun playlist(id: String): JellyfinPlaylist? = withContext(Dispatchers.IO) {
+        items(get("/Items", mapOf("userId" to JellyfinPref.userId, "ids" to id, "fields" to "ChildCount"))).firstOrNull()
+            ?.let { JellyfinPlaylist(it.str("Id"), it.str("Name"), it.primaryTag(), it.int("ChildCount") ?: 0) }
+    }
+
+    /** A new audio playlist of this user, with [ids] in it (none for an empty one). Its id. */
+    suspend fun createPlaylist(name: String, ids: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
+        val r = post("/Playlists", buildJsonObject {
+            put("Name", JsonPrimitive(name))
+            put("UserId", JsonPrimitive(JellyfinPref.userId))
+            put("MediaType", JsonPrimitive("Audio"))
+            put("Ids", JsonArray(ids.map { JsonPrimitive(it) }))
+        }) as? JsonObject
+        r?.str("Id")?.takeIf { it.isNotBlank() } ?: throw IOException("No playlist in the answer")
+    }
+
+    /** Adds [ids] at the end of the playlist. */
+    suspend fun addToPlaylist(playlistId: String, ids: List<String>) = withContext(Dispatchers.IO) {
+        // In parts: a whole album makes an address too long for some servers.
+        ids.chunked(50).forEach { part ->
+            post("/Playlists/$playlistId/Items?ids=${part.joinToString(",")}&userId=${JellyfinPref.userId}")
+        }
+    }
+
+    /** Takes these entries (JellyfinTrack.entryId) out of the playlist. */
+    suspend fun removeFromPlaylist(playlistId: String, entryIds: List<String>) = withContext(Dispatchers.IO) {
+        entryIds.chunked(50).forEach { part -> delete("/Playlists/$playlistId/Items?entryIds=${part.joinToString(",")}") }
+    }
+
+    /** Moves an entry to [newIndex] (0 the first) of the playlist. */
+    suspend fun movePlaylistEntry(playlistId: String, entryId: String, newIndex: Int) = withContext(Dispatchers.IO) {
+        post("/Playlists/$playlistId/Items/$entryId/Move/$newIndex")
+        Unit
+    }
+
+    /** A new name (Jellyfin 10.9 and later). */
+    suspend fun renamePlaylist(playlistId: String, name: String) = withContext(Dispatchers.IO) {
+        post("/Playlists/$playlistId", buildJsonObject { put("Name", JsonPrimitive(name)) })
+        Unit
+    }
+
+    /** Deletes the playlist on the server (its owner, or a user allowed to delete). */
+    suspend fun deletePlaylist(playlistId: String) = withContext(Dispatchers.IO) {
+        delete("/Items/$playlistId")
+        Unit
+    }
+
     // ---- favourites and play reports ----
 
     suspend fun setFavorite(itemId: String, on: Boolean) = withContext(Dispatchers.IO) {
@@ -473,6 +528,7 @@ object JellyfinApi {
             imageTag = albumTag.ifBlank { ownTag },
             artistId = firstId("ArtistItems").ifBlank { firstId("AlbumArtists") },
             playCount = (userData()?.get("PlayCount") as? JsonPrimitive)?.intOrNull ?: 0,
+            entryId = str("PlaylistItemId"),
         )
     }
 }
