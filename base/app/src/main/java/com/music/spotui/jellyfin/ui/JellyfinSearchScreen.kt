@@ -91,8 +91,7 @@ internal fun genreCards(albums: List<JellyfinAlbum>): List<GenreCard> {
  * only (unless its library is told otherwise), so a comma-separated tag reached the app as one
  * genre; each part is a genre of its own here, merged with the same genre named alone.
  */
-internal fun splitGenre(name: String): List<String> =
-    name.split(',', ';', '/', '|', '\\').map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
+internal fun splitGenre(name: String): List<String> = JellyfinApi.genreParts(name)
 
 private class Results(val artists: List<JellyfinArtist>, val albums: List<JellyfinAlbum>, val tracks: List<JellyfinTrack>)
 

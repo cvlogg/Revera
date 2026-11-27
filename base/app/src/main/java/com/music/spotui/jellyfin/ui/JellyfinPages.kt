@@ -216,9 +216,15 @@ internal fun TrackListPage(nav: NavController, title: String, page: Loaded<List<
 @Composable
 fun JellyfinGenreScreen(nav: NavController, id: String, name: String) {
     val scope = rememberCoroutineScope()
-    val page = load(id) { JellyfinApi.albumsBy("SortName", 200, genreId = id) }
+    // Every server genre naming it, read from the whole genre list: the tile it was opened from
+    // may know only those of a sample (an album tagged "Crust Punk, Sludge Metal" was left out).
+    var ids by remember(id) { mutableStateOf(id) }
+    val page = load(id, name) {
+        ids = runCatching { JellyfinApi.genreIdsNamed(name) }.getOrDefault("").ifBlank { id }
+        JellyfinApi.albumsBy("SortName", 500, genreId = ids)
+    }
     val shuffle: () -> Unit = {
-        scope.launch { runCatching { JellyfinApi.randomTracks(com.music.spotui.jellyfin.JellyfinPref.libraryId, genreId = id) }
+        scope.launch { runCatching { JellyfinApi.randomTracks(com.music.spotui.jellyfin.JellyfinPref.libraryId, genreId = ids) }
             .getOrNull()?.takeIf { it.isNotEmpty() }?.let { JellyfinPlayback.play(it, 0, JellyfinPlayback.From.genre(id, name)) } }
     }
     AlbumGridPage(nav, name, tileColor(name), page, onPlay = shuffle)

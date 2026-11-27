@@ -326,6 +326,24 @@ object JellyfinApi {
 
     // ---- genres, playlists ----
 
+    /** "Emoviolence, Deathcore" → the two genres it names (the server splits tags on / | ; \\ only). */
+    fun genreParts(name: String): List<String> =
+        name.split(',', ';', '/', '|', '\\').map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
+
+    private var genreCache: Pair<Long, List<JellyfinGenre>>? = null
+
+    /**
+     * Every server genre naming [name], alone or in a tag of several ("Crust Punk" and "Crust Punk,
+     * Sludge Metal"), as ids separated by commas; "" with none. The library's whole genre list is
+     * read (kept 10 minutes), not a sample.
+     */
+    suspend fun genreIdsNamed(name: String): String {
+        val now = System.currentTimeMillis()
+        val all = genreCache?.takeIf { now - it.first < 10 * 60_000L }?.second
+            ?: genres(10_000).also { genreCache = now to it }
+        return all.filter { g -> genreParts(g.name).any { it.equals(name.trim(), ignoreCase = true) } }.joinToString(",") { it.id }
+    }
+
     suspend fun genres(limit: Int = 60): List<JellyfinGenre> = withContext(Dispatchers.IO) {
         items(get("/MusicGenres", mapOf("userId" to JellyfinPref.userId, "sortBy" to "SortName", "limit" to limit.toString()) + lib()))
             .map { JellyfinGenre(it.str("Id"), it.str("Name"), if (it.primaryTag().isNotBlank()) it.str("Id") else "", it.primaryTag()) }
