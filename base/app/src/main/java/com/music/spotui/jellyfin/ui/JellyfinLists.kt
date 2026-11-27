@@ -146,8 +146,17 @@ private fun GenreListPage(nav: NavController) {
         coroutineScope {
             val all = async { JellyfinApi.genres(500) }
             val sample = async { runCatching { JellyfinApi.albumsWithGenres(400) }.getOrDefault(emptyList()) }
-            val covers = genreCards(sample.await()).associateBy { it.id }
-            all.await().map { g -> GenreCard(g.id, g.name, covers[g.id]?.cover ?: JellyfinApi.imageUrl(g.imageItemId, g.imageTag), covers[g.id]?.albums ?: 0) }
+            val covers = genreCards(sample.await()).associateBy { it.name.lowercase() }
+            // Each part of a tag like "Emoviolence, Deathcore" is a genre; the server genres naming
+            // it are all asked for its page (their ids together).
+            class Acc(val name: String, val image: String) { val ids = LinkedHashSet<String>() }
+            val byName = LinkedHashMap<String, Acc>()
+            for (g in all.await()) for (part in splitGenre(g.name)) {
+                byName.getOrPut(part.lowercase()) { Acc(part, JellyfinApi.imageUrl(g.imageItemId, g.imageTag)) }.ids += g.id
+            }
+            byName.map { (key, acc) ->
+                GenreCard(acc.ids.joinToString(","), acc.name, covers[key]?.cover ?: acc.image, covers[key]?.albums ?: 0)
+            }.sortedBy { it.name.lowercase() }
         }
     }
     Box(Modifier.fillMaxSize().background(AppBackground)) {

@@ -206,7 +206,7 @@ object JellyfinApi {
         ) + lib() +
             (if (played) mapOf("filters" to "IsPlayed") else emptyMap()) +
             (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap()) +
-            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId.replace(',', '|')) else emptyMap()) +
             (if (years.isNotBlank()) mapOf("years" to years) else emptyMap())
         items(get("/Items", q)).map { it.toAlbum() }
     }
@@ -253,7 +253,7 @@ object JellyfinApi {
     /** A random pick of the library's songs (or of a genre's, or the favourites), at most a page. */
     suspend fun randomTracks(libraryId: String, genreId: String = "", favorites: Boolean = false): List<JellyfinTrack> = withContext(Dispatchers.IO) {
         val q = itemQuery("parentId" to libraryId, "includeItemTypes" to "Audio", "sortBy" to "Random", "limit" to PAGE.toString()) +
-            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId.replace(',', '|')) else emptyMap()) +
             (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap())
         items(get("/Items", q)).map { it.toTrack() }
     }

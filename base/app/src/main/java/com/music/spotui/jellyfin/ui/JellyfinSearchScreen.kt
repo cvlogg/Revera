@@ -74,10 +74,25 @@ internal class GenreCard(val id: String, val name: String, val cover: String, va
 private class Browse(val covers: List<String>, val genres: List<GenreCard>, val decades: List<Pair<Int, String>>)
 
 /** The genres of [albums], most albums first, each with one album's cover. */
-internal fun genreCards(albums: List<JellyfinAlbum>): List<GenreCard> =
-    albums.flatMap { a -> a.genres.map { it to a } }.groupBy { it.first.first }
-        .map { (id, pairs) -> GenreCard(id, pairs.first().first.second, albumCover(pairs.first().second, 400), pairs.size) }
+internal fun genreCards(albums: List<JellyfinAlbum>): List<GenreCard> {
+    class Acc(val name: String) { val ids = LinkedHashSet<String>(); val albums = LinkedHashMap<String, JellyfinAlbum>() }
+    val byName = LinkedHashMap<String, Acc>()
+    for (a in albums) for ((id, name) in a.genres) for (part in splitGenre(name)) {
+        val acc = byName.getOrPut(part.lowercase()) { Acc(part) }
+        acc.ids += id
+        acc.albums[a.id] = a
+    }
+    return byName.values.map { GenreCard(it.ids.joinToString(","), it.name, albumCover(it.albums.values.first(), 400), it.albums.size) }
         .sortedByDescending { it.albums }
+}
+
+/**
+ * The genres one tag names: "Emoviolence, Deathcore" is two. The server splits a tag on / | ; \
+ * only (unless its library is told otherwise), so a comma-separated tag reached the app as one
+ * genre; each part is a genre of its own here, merged with the same genre named alone.
+ */
+internal fun splitGenre(name: String): List<String> =
+    name.split(',', ';', '/', '|', '\\').map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
 
 private class Results(val artists: List<JellyfinArtist>, val albums: List<JellyfinAlbum>, val tracks: List<JellyfinTrack>)
 
