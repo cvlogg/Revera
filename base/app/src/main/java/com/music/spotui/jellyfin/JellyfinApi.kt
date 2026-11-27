@@ -200,13 +200,24 @@ object JellyfinApi {
 
     /** Albums of the library in an order the server knows: "DatePlayed", "DateCreated", "PlayCount", "Random". */
     suspend fun albumsBy(sort: String, limit: Int = 20, played: Boolean = false, genreId: String = "", years: String = "", favorites: Boolean = false): List<JellyfinAlbum> = withContext(Dispatchers.IO) {
+        // Several genres (a tag like "Emoviolence, Deathcore" split by the app): each asked on its
+        // own and merged here. A list in one filter was ignored by the server (the whole library came back).
+        val ids = genreId.split(',').filter { it.isNotBlank() }
+        if (ids.size > 1) {
+            val all = ids.flatMap { albumsBy(sort, limit, played, it, years, favorites) }.distinctBy { it.id }
+            return@withContext when (sort) {
+                "SortName" -> all.sortedBy { it.name.lowercase() }
+                "Random" -> all.shuffled()
+                else -> all
+            }.take(limit)
+        }
         val q = itemQuery(
             "includeItemTypes" to "MusicAlbum", "sortBy" to "$sort,SortName",
             "sortOrder" to (if (sort == "SortName") "Ascending" else "Descending"), "limit" to limit.toString(),
         ) + lib() +
             (if (played) mapOf("filters" to "IsPlayed") else emptyMap()) +
             (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap()) +
-            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId.replace(',', '|')) else emptyMap()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
             (if (years.isNotBlank()) mapOf("years" to years) else emptyMap())
         items(get("/Items", q)).map { it.toAlbum() }
     }
@@ -252,8 +263,12 @@ object JellyfinApi {
 
     /** A random pick of the library's songs (or of a genre's, or the favourites), at most a page. */
     suspend fun randomTracks(libraryId: String, genreId: String = "", favorites: Boolean = false): List<JellyfinTrack> = withContext(Dispatchers.IO) {
+        val ids = genreId.split(',').filter { it.isNotBlank() }
+        if (ids.size > 1) {
+            return@withContext ids.flatMap { randomTracks(libraryId, it, favorites) }.distinctBy { it.id }.shuffled().take(PAGE)
+        }
         val q = itemQuery("parentId" to libraryId, "includeItemTypes" to "Audio", "sortBy" to "Random", "limit" to PAGE.toString()) +
-            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId.replace(',', '|')) else emptyMap()) +
+            (if (genreId.isNotBlank()) mapOf("genreIds" to genreId) else emptyMap()) +
             (if (favorites) mapOf("filters" to "IsFavorite") else emptyMap())
         items(get("/Items", q)).map { it.toTrack() }
     }
