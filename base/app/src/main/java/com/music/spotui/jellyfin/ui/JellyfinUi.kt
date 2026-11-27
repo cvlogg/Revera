@@ -386,6 +386,26 @@ internal object MenuIcons {
         moveTo(3f, 13f); lineTo(21f, 13f); moveTo(3f, 19f); lineTo(21f, 19f)
     }
     val album = stroked("album") { circle(12f, 12f, 9.5f); circle(12f, 12f, 2.2f) }
+    val close = stroked("close") { moveTo(5f, 5f); lineTo(19f, 19f); moveTo(19f, 5f); lineTo(5f, 19f) }
+    val follow = stroked("follow") {
+        circle(10f, 7.5f, 4f)
+        moveTo(2.5f, 21f); lineTo(2.5f, 19.5f); arcTo(4.5f, 4.5f, 0f, false, true, 7f, 15f); lineTo(13f, 15f)
+        moveTo(19f, 13f); lineTo(19f, 21f); moveTo(15f, 17f); lineTo(23f, 17f)
+    }
+    /** A push pin, leaning (the official "Pin"). */
+    val pin = stroked("pin") {
+        moveTo(14.5f, 2.5f); lineTo(21.5f, 9.5f); lineTo(19f, 10.5f); lineTo(15.5f, 15.5f); lineTo(16f, 19f)
+        lineTo(5f, 8f); lineTo(8.5f, 8.5f); lineTo(13.5f, 5f); close()
+        moveTo(10.5f, 13.5f); lineTo(3f, 21f)
+    }
+    val pinFilled: ImageVector = ImageVector.Builder("pinFilled", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = androidx.compose.ui.graphics.SolidColor(Color.White)) {
+            moveTo(14.5f, 2.5f); lineTo(21.5f, 9.5f); lineTo(19f, 10.5f); lineTo(15.5f, 15.5f); lineTo(16f, 19f)
+            lineTo(5f, 8f); lineTo(8.5f, 8.5f); lineTo(13.5f, 5f); close()
+        }
+        path(stroke = androidx.compose.ui.graphics.SolidColor(Color.White), strokeLineWidth = 2.4f,
+            strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round) { moveTo(10.5f, 13.5f); lineTo(3f, 21f) }
+    }.build()
     val artist = stroked("artist") {
         circle(10f, 7.5f, 4f)
         moveTo(2.5f, 21f); lineTo(2.5f, 19.5f); arcTo(4.5f, 4.5f, 0f, false, true, 7f, 15f); lineTo(12.5f, 15f)
@@ -447,18 +467,81 @@ internal fun ArtistShelf(artists: List<JellyfinArtist>, nav: NavController) {
 
 /** A list row: cover (round for an artist), title, one line under it. */
 @Composable
-internal fun ListRow(url: String, title: String, subtitle: String, round: Boolean = false, onClick: () -> Unit) {
+internal fun ListRow(
+    url: String, title: String, subtitle: String, round: Boolean = false,
+    /** Pinned to the top of Your Library: a green pin before the line under the name. */
+    pinned: Boolean = false,
+    /** Holding the row: its menu. */
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().pressable(0.98f, onClick = onClick).padding(horizontal = 16.dp, vertical = 7.dp),
+        modifier = Modifier.fillMaxWidth()
+            .then(if (onLongClick == null) Modifier.pressable(0.98f, onClick = onClick)
+                else Modifier.combinedClickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onLongClick = { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onLongClick() },
+                    onClick = onClick,
+                ))
+            .padding(horizontal = 16.dp, vertical = 7.dp),
     ) {
         Cover(url, 64.dp, if (round) CircleShape else RoundedCornerShape(4.dp))
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(title, color = AppText, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle.isNotBlank()) Text(subtitle, color = AppMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 3.dp))
+            if (subtitle.isNotBlank() || pinned) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
+                if (pinned) Icon(MenuIcons.pinFilled, null, tint = AppAccent, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                if (pinned) Spacer(Modifier.width(4.dp))
+                Text(subtitle, color = AppMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
+}
+
+/**
+ * An artist's menu (held in Your Library), as the official one: the artist over a rule, then
+ * Follow / Stop Following and Pin / Unpin artist.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun ArtistMenu(a: JellyfinArtist, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val following = FollowedArtists.isFollowed(a)
+    val pinned = com.music.spotui.jellyfin.LibraryPins.isPinned("artist:" + a.id)
+    com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = MenuBackground) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(artistImage(a, 160), 48.dp, CircleShape)
+                Text(a.name, color = AppText, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 13.dp))
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.12f)))
+            MenuRow(if (following) MenuIcons.close else MenuIcons.follow,
+                stringResource(if (following) R.string.jellyfin_stop_following else R.string.jellyfin_follow)) {
+                onDismiss()
+                val on = !following
+                FollowedArtists.set(a, on)
+                scope.launch {
+                    runCatching { JellyfinApi.setFavorite(a.id, on) }
+                        .onSuccess { PlaylistChanges.changed() }
+                        .onFailure { FollowedArtists.set(a, !on) }
+                }
+            }
+            MenuRow(MenuIcons.pin, stringResource(if (pinned) R.string.jellyfin_unpin_artist else R.string.jellyfin_pin_artist)) {
+                onDismiss()
+                com.music.spotui.jellyfin.LibraryPins.set(context, "artist:" + a.id, !pinned)
+            }
+        }
+    }
+}
+
+/** Followed artists as this session knows them: the server's state, then what the menus changed. */
+internal object FollowedArtists {
+    private val changed = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+    fun isFollowed(a: JellyfinArtist): Boolean = changed[a.id] ?: a.favorite
+    fun set(a: JellyfinArtist, on: Boolean) { changed[a.id] = on }
 }
 
 /** The user's round badge (the first letter of their name), as on Home, Search and Your Library. */

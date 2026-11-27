@@ -332,15 +332,21 @@ fun JellyfinLibraryScreen(nav: NavController) {
                 s == null && shelf.failed -> item { Problem() }
                 s == null -> item { Loading() }
                 else -> {
+                    // Pinned artists first (after Liked Songs), newest pin first, as the official library.
+                    val pins = com.music.spotui.jellyfin.LibraryPins.all()
+                    val pinnedArtists = s.artists.filter { "artist:" + it.id in pins }.sortedBy { pins.indexOf("artist:" + it.id) }
+                    val unpinned = s.artists.filterNot { "artist:" + it.id in pins }
+                    items(pinnedArtists.size, key = { "pin" + pinnedArtists[it].id }) { i ->
+                        LibraryArtistRow(pinnedArtists[i], nav, pinned = true)
+                    }
                     items(s.playlists.size, key = { "p" + s.playlists[it].id }) { i ->
                         val p = s.playlists[i]
                         PlaylistRow(p, listOf(stringResource(R.string.jellyfin_playlist), com.music.spotui.jellyfin.LocalProfile.name).filter { it.isNotBlank() }.joinToString(" • ")) {
                             JellyfinRoutes.playlist(nav, p.id, p.name)
                         }
                     }
-                    items(s.artists.size, key = { "r" + s.artists[it].id }) { i ->
-                        val a = s.artists[i]
-                        ListRow(artistImage(a, 160), a.name, stringResource(R.string.jellyfin_artist), round = true) { JellyfinRoutes.artist(nav, a.id) }
+                    items(unpinned.size, key = { "r" + unpinned[it].id }) { i ->
+                        LibraryArtistRow(unpinned[i], nav, pinned = false)
                     }
                     items(s.albums.size, key = { "a" + s.albums[it].id }) { i ->
                         val a = s.albums[i]
@@ -353,4 +359,13 @@ fun JellyfinLibraryScreen(nav: NavController) {
             }
         }
     }
+}
+
+/** An artist of Your Library: a tap opens them, holding opens their menu (Follow, Pin). */
+@Composable
+private fun LibraryArtistRow(a: JellyfinArtist, nav: NavController, pinned: Boolean) {
+    var menu by remember { mutableStateOf(false) }
+    if (menu) ArtistMenu(a) { menu = false }
+    ListRow(artistImage(a, 160), a.name, stringResource(R.string.jellyfin_artist), round = true, pinned = pinned,
+        onLongClick = { menu = true }) { JellyfinRoutes.artist(nav, a.id) }
 }

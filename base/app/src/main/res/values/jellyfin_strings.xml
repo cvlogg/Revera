@@ -161,4 +161,7 @@
     <string name="jellyfin_signed_in_as">Jellyfin user: %1$s</string>
     <string name="jellyfin_server_title">Server</string>
     <string name="jellyfin_profile_note">Your name and photo are kept on this phone. Your Jellyfin account is not changed.</string>
+    <string name="jellyfin_stop_following">Stop Following</string>
+    <string name="jellyfin_pin_artist">Pin artist</string>
+    <string name="jellyfin_unpin_artist">Unpin artist</string>
 </resources>
