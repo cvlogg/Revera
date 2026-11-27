@@ -464,11 +464,14 @@ internal fun ListRow(url: String, title: String, subtitle: String, round: Boolea
 /** The user's round badge (the first letter of their name), as on Home, Search and Your Library. */
 @Composable
 internal fun Avatar(size: Dp = 34.dp, onClick: () -> Unit = {}) {
+    val picture = com.music.spotui.jellyfin.LocalProfile.picture
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier.size(size).clip(CircleShape).background(AppAccent).pressable(onClick = onClick),
     ) {
-        Text(JellyfinPref.userName.trim().take(1).uppercase().ifBlank { "?" }, color = Color.Black,
+        // The picture chosen on the phone, else the name's first letter on green.
+        if (picture != null) FillImage(picture, Modifier.size(size))
+        else Text(com.music.spotui.jellyfin.LocalProfile.name.trim().take(1).uppercase().ifBlank { "?" }, color = Color.Black,
             fontSize = (size.value * 0.5f).sp, fontWeight = FontWeight.Bold)
     }
 }

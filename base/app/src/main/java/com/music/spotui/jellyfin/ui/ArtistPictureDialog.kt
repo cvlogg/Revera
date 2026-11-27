@@ -66,7 +66,7 @@ internal fun ChangeArtistPicture(artistId: String, onDismiss: () -> Unit) {
 
 /** The same choices for any item kept by [ArtistPictures] under [itemId] (an artist, a playlist). */
 @Composable
-internal fun ChangePicture(itemId: String, title: String, random: suspend () -> Boolean, onDismiss: () -> Unit) {
+internal fun ChangePicture(itemId: String, title: String, random: (suspend () -> Boolean)?, onDismiss: () -> Unit) {
     val artistId = itemId
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -101,7 +101,7 @@ internal fun ChangePicture(itemId: String, title: String, random: suspend () -> 
             Text(title, color = Color.White, fontSize = 30.sp, lineHeight = 36.sp,
                 modifier = Modifier.padding(bottom = 22.dp))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Option(Icons.Outlined.AutoAwesome, stringResource(R.string.jellyfin_picture_random), busy) {
+                if (random != null) Option(Icons.Outlined.AutoAwesome, stringResource(R.string.jellyfin_picture_random), busy) {
                     run { random() }
                 }
                 Option(Icons.Outlined.FilePresent, stringResource(R.string.jellyfin_picture_file), busy) { file.launch(arrayOf("image/*")) }

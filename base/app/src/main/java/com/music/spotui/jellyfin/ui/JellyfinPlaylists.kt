@@ -400,7 +400,7 @@ fun JellyfinPlaylistScreen(nav: NavController, id: String, name: String) {
                                 maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
                                 Avatar(22.dp)
-                                Text(JellyfinPref.userName, color = AppText, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                                Text(com.music.spotui.jellyfin.LocalProfile.name, color = AppText, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
                             }
                             val minutes = p.tracks.sumOf { it.durationMs } / 60_000
                             Text(listOf(context.resources.getQuantityString(R.plurals.jellyfin_songs_plural, p.tracks.size, p.tracks.size),

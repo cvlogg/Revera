@@ -28,6 +28,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -164,14 +168,37 @@ private fun GenreListPage(nav: NavController) {
     }
 }
 
-/** The badge's page: who is signed in, to which server, which music library, and Sign out. */
+/**
+ * The badge's page, as the official profile: the picture and the name (both the phone's own, see
+ * LocalProfile) with Edit, then the server signed in to, its music library and Sign out.
+ */
 @Composable
 private fun AccountPage(nav: NavController) {
     val context = LocalContext.current
     val libs = load("libs") { JellyfinApi.libraries() }
+    var editing by remember { mutableStateOf(false) }
+    val picture = com.music.spotui.jellyfin.LocalProfile.picture
+    val tint = if (picture != null) coverTint(picture) else tileColor(1)
     Box(Modifier.fillMaxSize().background(AppBackground)) {
         Column(Modifier.fillMaxSize()) {
-            ColorHeader(JellyfinPref.userName.ifBlank { stringResource(R.string.jellyfin_title) }, tileColor(1))
+            Column(Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(tint, AppBackground)))
+                .statusBarsPadding().padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(64.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(110.dp) { editing = true }
+                    Column(Modifier.padding(start = 16.dp).weight(1f)) {
+                        Text(com.music.spotui.jellyfin.LocalProfile.name.ifBlank { stringResource(R.string.jellyfin_title) }, color = AppText,
+                            fontSize = 30.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp, maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.jellyfin_signed_in_as, JellyfinPref.userName), color = AppMuted, fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+                Row(Modifier.padding(top = 20.dp, bottom = 12.dp)) {
+                    Pill(stringResource(R.string.jellyfin_edit), outlined = true) { editing = true }
+                }
+            }
+            SectionTitle(stringResource(R.string.jellyfin_server_title))
             Text(JellyfinPref.server, color = AppMuted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
             libs.value?.takeIf { it.size > 1 }?.let { all ->
                 SectionTitle(stringResource(R.string.jellyfin_music_library))
@@ -186,6 +213,45 @@ private fun AccountPage(nav: NavController) {
         }
         BackButton(nav)
     }
+    if (editing) EditProfileDialog { editing = false }
+}
+
+/** "Edit profile": the picture (Change photo) and the name; the name is kept with Save. */
+@Composable
+private fun EditProfileDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(com.music.spotui.jellyfin.LocalProfile.name) }
+    var changing by remember { mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Column(Modifier.fillMaxSize().background(AppBackground).statusBarsPadding().navigationBarsPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(44.dp).pressable(onClick = onDismiss), contentAlignment = Alignment.Center) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Close, stringResource(R.string.jellyfin_cancel), tint = AppText)
+                }
+                Text(stringResource(R.string.jellyfin_edit_profile), color = AppText, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.jellyfin_save), color = AppText, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.pressable(0.95f) { com.music.spotui.jellyfin.LocalProfile.setName(context, name); onDismiss() }.padding(12.dp))
+            }
+            Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Avatar(150.dp) { changing = true }
+                Text(stringResource(R.string.jellyfin_change_photo), color = AppText, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 14.dp).pressable(0.95f) { changing = true }.padding(6.dp))
+            }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp)) {
+                Text(stringResource(R.string.jellyfin_name), color = AppMuted, fontSize = 13.sp)
+                androidx.compose.foundation.text.BasicTextField(name, { name = it }, singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AppText, fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(com.music.spotui.ui.theme.AppAccent),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(1.dp).background(AppMuted.copy(alpha = 0.5f)))
+                Text(stringResource(R.string.jellyfin_profile_note), color = AppMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+            }
+        }
+    }
+    if (changing) ChangePicture(com.music.spotui.jellyfin.LocalProfile.pictureId, stringResource(R.string.jellyfin_change_photo),
+        random = null) { changing = false }
 }
 
 private enum class LibChip { PLAYLISTS, ALBUMS, ARTISTS }
@@ -268,7 +334,7 @@ fun JellyfinLibraryScreen(nav: NavController) {
                 else -> {
                     items(s.playlists.size, key = { "p" + s.playlists[it].id }) { i ->
                         val p = s.playlists[i]
-                        PlaylistRow(p, listOf(stringResource(R.string.jellyfin_playlist), JellyfinPref.userName).filter { it.isNotBlank() }.joinToString(" • ")) {
+                        PlaylistRow(p, listOf(stringResource(R.string.jellyfin_playlist), com.music.spotui.jellyfin.LocalProfile.name).filter { it.isNotBlank() }.joinToString(" • ")) {
                             JellyfinRoutes.playlist(nav, p.id, p.name)
                         }
                     }

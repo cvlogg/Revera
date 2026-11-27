@@ -154,4 +154,11 @@
     <string name="jellyfin_share">Share</string>
     <string name="jellyfin_add_to_queue_menu">Add to Queue</string>
     <string name="jellyfin_go_to_queue">Go to Queue</string>
+    <string name="jellyfin_edit">Edit</string>
+    <string name="jellyfin_edit_profile">Edit profile</string>
+    <string name="jellyfin_change_photo">Change photo</string>
+    <string name="jellyfin_name">Name</string>
+    <string name="jellyfin_signed_in_as">Jellyfin user: %1$s</string>
+    <string name="jellyfin_server_title">Server</string>
+    <string name="jellyfin_profile_note">Your name and photo are kept on this phone. Your Jellyfin account is not changed.</string>
 </resources>
