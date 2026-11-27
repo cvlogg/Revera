@@ -439,7 +439,9 @@ internal fun CoverCard(url: String, title: String, subtitle: String, size: Dp = 
 
 /** A horizontal shelf of album cards. */
 @Composable
-internal fun AlbumShelf(albums: List<JellyfinAlbum>, nav: NavController, size: Dp = 150.dp, subtitle: (JellyfinAlbum) -> String = { it.artist }) {
+internal fun AlbumShelf(all: List<JellyfinAlbum>, nav: NavController, size: Dp = 150.dp, subtitle: (JellyfinAlbum) -> String = { it.artist }) {
+    // Each once: a key met twice in a lazy row ends the app.
+    val albums = remember(all) { all.distinctBy { it.id } }
     androidx.compose.foundation.lazy.LazyRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
@@ -453,7 +455,8 @@ internal fun AlbumShelf(albums: List<JellyfinAlbum>, nav: NavController, size: D
 
 /** A horizontal shelf of round artist cards. */
 @Composable
-internal fun ArtistShelf(artists: List<JellyfinArtist>, nav: NavController) {
+internal fun ArtistShelf(all: List<JellyfinArtist>, nav: NavController) {
+    val artists = remember(all) { all.distinctBy { it.id } }
     androidx.compose.foundation.lazy.LazyRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),

@@ -128,7 +128,8 @@ fun JellyfinSearchScreen(nav: NavController) {
             val artists = async { runCatching { JellyfinApi.artists(search = debounced, limit = 10) }.getOrDefault(emptyList()) }
             val albums = async { JellyfinApi.albums(lib, search = debounced).first.take(20) }
             val tracks = async { JellyfinApi.searchTracks(lib, debounced, 30) }
-            Results(artists.await(), albums.await(), tracks.await())
+            // Each once: a key met twice in the list ends the app.
+            Results(artists.await().distinctBy { it.id }, albums.await().distinctBy { it.id }, tracks.await().distinctBy { it.id })
         }
     }
 
@@ -218,7 +219,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.browseSections(b: Bro
         item(key = "discover") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
                 val picks = b.genres.shuffled(java.util.Random(b.genres.size.toLong())).take(10)
-                items(picks.size, key = { picks[it].id }) { i ->
+                // Keyed by name: since a tag of several genres is split, two genres can share the same
+                // server ids, and a key met twice in a row ends the app.
+                items(picks.size, key = { "g:" + picks[it].name.lowercase() }) { i ->
                     val g = picks[i]
                     Box(Modifier.width(140.dp).height(210.dp).clip(RoundedCornerShape(8.dp)).pressable(0.97f) { JellyfinRoutes.genre(nav, g.id, g.name) }) {
                         FillImage(g.cover, Modifier.fillMaxSize())
